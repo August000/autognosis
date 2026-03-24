@@ -4,4 +4,14 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "elevenlabs>=2.39.0",
+    "langchain-memgraph>=0.1.12",
+    "mem0ai[graph]>=1.0.7",
+    "numpy>=1.26.0",
+    "openai>=2.29.0",
+    "python-dotenv>=1.2.2",
+    "qdrant-client>=1.17.1",
+    "sounddevice>=0.5.0",
+    "websockets>=13.0",
+]
