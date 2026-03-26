@@ -25,7 +25,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 28px;
+      padding: 14px 24px;
       background: linear-gradient(180deg, rgba(10,10,15,0.95) 0%, rgba(10,10,15,0) 100%);
       pointer-events: none;
     }
@@ -33,15 +33,95 @@
     #header > * { pointer-events: auto; }
 
     .logo {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       letter-spacing: 3px;
       text-transform: uppercase;
       color: #8888aa;
+      white-space: nowrap;
     }
 
-    .logo span {
-      color: #b8b8ff;
+    .logo span { color: #b8b8ff; }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* ── Search bar ──────────────────────────────────── */
+    .search-wrapper {
+      position: relative;
+    }
+
+    #search-input {
+      width: 260px;
+      padding: 8px 14px 8px 32px;
+      background: rgba(20, 20, 30, 0.8);
+      border: 1px solid rgba(120, 120, 180, 0.15);
+      border-radius: 8px;
+      color: #ccccee;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.2s, width 0.3s;
+    }
+
+    #search-input:focus {
+      border-color: rgba(120, 120, 200, 0.4);
+      width: 320px;
+    }
+
+    #search-input::placeholder { color: #555577; }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #555577;
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    #search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 4px;
+      background: rgba(15, 15, 22, 0.95);
+      border: 1px solid rgba(120, 120, 180, 0.15);
+      border-radius: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+      display: none;
+      backdrop-filter: blur(12px);
+    }
+
+    #search-results.visible { display: block; }
+
+    .search-result-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(120, 120, 180, 0.06);
+      transition: background 0.15s;
+    }
+
+    .search-result-item:hover { background: rgba(100, 100, 200, 0.1); }
+    .search-result-item:last-child { border-bottom: none; }
+
+    .search-result-item .sr-label {
+      font-size: 13px;
+      color: #ccccee;
+      font-weight: 500;
+    }
+
+    .search-result-item .sr-desc {
+      font-size: 11px;
+      color: #777799;
+      margin-top: 2px;
     }
 
     /* ── Topology selector ───────────────────────────── */
@@ -62,7 +142,7 @@
       font-size: 12px;
       font-weight: 500;
       letter-spacing: 0.5px;
-      padding: 8px 18px;
+      padding: 8px 16px;
       border-radius: 7px;
       cursor: pointer;
       transition: all 0.25s ease;
@@ -86,8 +166,8 @@
       bottom: 24px;
       left: 28px;
       z-index: 100;
-      max-width: 380px;
-      max-height: 70vh;
+      width: 380px;
+      max-height: 75vh;
       overflow-y: auto;
       background: rgba(15, 15, 22, 0.92);
       border: 1px solid rgba(120, 120, 180, 0.12);
@@ -121,52 +201,99 @@
       font-style: italic;
     }
 
-    #info-panel .connections {
-      font-size: 12px;
-      color: #7777aa;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    #info-panel ul {
-      list-style: none;
-      max-height: 180px;
-      overflow-y: auto;
-    }
-
-    #info-panel li {
-      font-size: 12px;
-      color: #9999bb;
-      padding: 5px 0;
-      border-bottom: 1px solid rgba(120, 120, 180, 0.06);
-      line-height: 1.4;
-    }
-
-    #info-panel li:last-child { border-bottom: none; }
-
-    .edge-label {
-      color: #aaaadd;
-      font-weight: 500;
-    }
-
-    .neighbor-name {
-      color: #ccccee;
-    }
-
-    /* ── Memories section ─────────────────────────────── */
-    #memories-section {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(120, 120, 180, 0.1);
-    }
-
-    #memories-section .section-title {
+    /* ── Connections section (navigable) ──────────── */
+    .section-header {
       font-size: 11px;
       color: #7777aa;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-bottom: 8px;
+    }
+
+    #info-panel ul { list-style: none; }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      margin-bottom: 3px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+    }
+
+    .nav-link:hover {
+      background: rgba(100, 100, 200, 0.1);
+    }
+
+    .nav-link .nav-arrow {
+      font-size: 14px;
+      color: #7777aa;
+      flex-shrink: 0;
+      width: 16px;
+      text-align: center;
+    }
+
+    .nav-link .nav-edge {
+      font-size: 11px;
+      color: #8888bb;
+      flex-shrink: 0;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .nav-link .nav-name {
+      font-size: 12px;
+      color: #ccccee;
+      font-weight: 500;
+    }
+
+    .nav-link .nav-goto {
+      margin-left: auto;
+      font-size: 10px;
+      color: #555577;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .nav-link:hover .nav-goto { opacity: 1; }
+
+    /* ── Knowledge detail section ─────────────────── */
+    #detail-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(120, 120, 180, 0.1);
+    }
+
+    #detail-content {
+      font-size: 12px;
+      color: #aaaacc;
+      line-height: 1.6;
+      padding: 10px 12px;
+      background: rgba(80, 80, 140, 0.06);
+      border-radius: 8px;
+      border: 1px solid rgba(120, 120, 180, 0.08);
+    }
+
+    .detail-loading {
+      font-size: 11px;
+      color: #555577;
+      font-style: italic;
+    }
+
+    /* ── Memories section ─────────────────────────── */
+    #memories-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(120, 120, 180, 0.1);
     }
 
     .memory-item {
@@ -188,7 +315,71 @@
       font-style: italic;
     }
 
-    /* ── Stats ────────────────────────────────────────── */
+    /* ── Ghost node suggestions ───────────────────── */
+    #suggest-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(120, 120, 180, 0.1);
+    }
+
+    .ghost-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 12px;
+      margin-bottom: 4px;
+      background: rgba(200, 100, 180, 0.06);
+      border: 1px dashed rgba(200, 100, 180, 0.25);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      text-align: left;
+    }
+
+    .ghost-btn:hover {
+      background: rgba(200, 100, 180, 0.12);
+      border-color: rgba(200, 100, 180, 0.4);
+    }
+
+    .ghost-btn.materialized {
+      background: rgba(120, 100, 200, 0.12);
+      border: 1px solid rgba(120, 100, 200, 0.3);
+      border-style: solid;
+      cursor: default;
+    }
+
+    .ghost-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #e866b0;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    .ghost-btn.materialized .ghost-dot {
+      background: #7B68EE;
+    }
+
+    .ghost-label {
+      font-size: 12px;
+      color: #cc88bb;
+      font-weight: 500;
+    }
+
+    .ghost-btn.materialized .ghost-label {
+      color: #b8b8ff;
+    }
+
+    .ghost-reason {
+      font-size: 10px;
+      color: #777799;
+      margin-top: 1px;
+    }
+
+    /* ── Stats ────────────────────────────────────── */
     #stats {
       position: fixed;
       bottom: 24px;
@@ -200,7 +391,7 @@
       line-height: 1.6;
     }
 
-    /* ── Loading ──────────────────────────────────────── */
+    /* ── Loading ──────────────────────────────────── */
     #loading {
       position: fixed;
       inset: 0;
@@ -214,10 +405,7 @@
       transition: opacity 0.5s ease;
     }
 
-    #loading.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
 
     .loader {
       width: 40px;
@@ -236,10 +424,10 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Description tooltip ─────────────────────────── */
+    /* ── Topo description ────────────────────────── */
     .topo-desc {
       position: fixed;
-      top: 68px;
+      top: 64px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 100;
@@ -251,27 +439,18 @@
       pointer-events: none;
     }
 
-    .topo-desc.visible {
-      opacity: 1;
-    }
+    .topo-desc.visible { opacity: 1; }
 
-    /* ── Graph container ─────────────────────────────── */
-    #graph-container {
-      width: 100vw;
-      height: 100vh;
-    }
+    /* ── Graph container ─────────────────────────── */
+    #graph-container { width: 100vw; height: 100vh; }
 
-    /* ── Scrollbar styling ───────────────────────────── */
+    /* ── Scrollbar ────────────────────────────────── */
     #info-panel::-webkit-scrollbar,
-    #info-panel ul::-webkit-scrollbar {
-      width: 4px;
-    }
+    #search-results::-webkit-scrollbar { width: 4px; }
     #info-panel::-webkit-scrollbar-track,
-    #info-panel ul::-webkit-scrollbar-track {
-      background: transparent;
-    }
+    #search-results::-webkit-scrollbar-track { background: transparent; }
     #info-panel::-webkit-scrollbar-thumb,
-    #info-panel ul::-webkit-scrollbar-thumb {
+    #search-results::-webkit-scrollbar-thumb {
       background: rgba(120, 120, 180, 0.2);
       border-radius: 2px;
     }
@@ -281,16 +460,23 @@
 
   <div id="loading">
     <div class="loader"></div>
-    <div id="loading-text">mapping thoughts…</div>
+    <div id="loading-text">mapping thoughts...</div>
   </div>
 
   <div id="header">
     <div class="logo">Solace <span>// shapes of thought</span></div>
-    <div class="topology-bar">
-      <button class="topo-btn active" data-topology="raw">All</button>
-      <button class="topo-btn" data-topology="centralized">Centralized</button>
-      <button class="topo-btn" data-topology="decentralized">Decentralized</button>
-      <button class="topo-btn" data-topology="distributed">Distributed</button>
+    <div class="header-center">
+      <div class="search-wrapper">
+        <span class="search-icon">&#x1F50D;</span>
+        <input type="text" id="search-input" placeholder="search concepts, feelings, ideas..." autocomplete="off" />
+        <div id="search-results"></div>
+      </div>
+      <div class="topology-bar">
+        <button class="topo-btn active" data-topology="raw">All</button>
+        <button class="topo-btn" data-topology="centralized">Centralized</button>
+        <button class="topo-btn" data-topology="decentralized">Decentralized</button>
+        <button class="topo-btn" data-topology="distributed">Distributed</button>
+      </div>
     </div>
   </div>
 
@@ -299,11 +485,19 @@
   <div id="info-panel">
     <h3 id="info-title"></h3>
     <div id="info-description"></div>
-    <div class="connections" id="info-connections"></div>
+    <div class="section-header" id="info-connections"></div>
     <ul id="info-list"></ul>
+    <div id="detail-section" style="display: none;">
+      <div class="section-header">first principles</div>
+      <div id="detail-content"></div>
+    </div>
     <div id="memories-section" style="display: none;">
-      <div class="section-title">original thoughts</div>
+      <div class="section-header">original thoughts</div>
       <div id="memories-content"></div>
+    </div>
+    <div id="suggest-section" style="display: none;">
+      <div class="section-header">explore further</div>
+      <div id="suggest-content"></div>
     </div>
   </div>
 
@@ -319,10 +513,10 @@
   <script>
 
     const DESCRIPTIONS = {
-      raw: 'Full graph — every concept and connection, enriched with meaning',
-      centralized: 'One core idea connecting all others — hub and spoke',
-      decentralized: 'Ideas cluster into themed hubs — communities of thought',
-      distributed: 'Equal mesh — every edge labeled with how ideas connect',
+      raw: 'Full graph -- every concept and connection, enriched with meaning',
+      centralized: 'One core idea connecting all others -- hub and spoke',
+      decentralized: 'Ideas cluster into themed hubs -- communities of thought',
+      distributed: 'Equal mesh -- every edge labeled with how ideas connect',
     };
 
     const CLUSTER_COLORS = [
@@ -336,56 +530,68 @@
     let highlightNodes = new Set();
     let highlightLinks = new Set();
     let selectedNode = null;
+    let ghostNodes = new Set(); // track ghost node IDs
 
-    // ── Initialize 3D Graph ─────────────────────────────
+    // ── Helper: get node color ────────────────────────
+    function getNodeColor(node) {
+      if (node._isGhost) return '#e866b0';
+      if (highlightNodes.has(node.id)) return '#ffffff';
+      if (node.isCore) return '#FFD700';
+      if (node.isHub) return '#FF6B8A';
+      return CLUSTER_COLORS[node.group % CLUSTER_COLORS.length];
+    }
 
+    // ── Initialize 3D Graph ──────────────────────────
     const Graph = ForceGraph3D()(document.getElementById('graph-container'))
       .backgroundColor('#0a0a0f')
       .showNavInfo(false)
       .nodeLabel(node => {
-        // Hover tooltip shows description
         if (node.description) {
-          return `<div style="background:rgba(15,15,22,0.95);padding:8px 12px;border-radius:8px;border:1px solid rgba(120,120,180,0.2);max-width:250px;font-size:12px;line-height:1.4;color:#ccccee;">
-            <div style="font-weight:600;color:#c8c8ff;margin-bottom:4px;">${node.label}</div>
-            <div style="color:#9999bb;font-style:italic;">${node.description}</div>
-          </div>`;
+          return '<div style="background:rgba(15,15,22,0.95);padding:8px 12px;border-radius:8px;border:1px solid rgba(120,120,180,0.2);max-width:250px;font-size:12px;line-height:1.4;color:#ccccee;">'
+            + '<div style="font-weight:600;color:#c8c8ff;margin-bottom:4px;">' + node.label + '</div>'
+            + '<div style="color:#9999bb;font-style:italic;">' + node.description + '</div>'
+            + '</div>';
         }
         return node.label || '';
       })
-      .nodeColor(node => {
-        if (highlightNodes.has(node.id)) return '#ffffff';
-        if (node.isCore) return '#FFD700';
-        if (node.isHub) return '#FF6B8A';
-        const color = CLUSTER_COLORS[node.group % CLUSTER_COLORS.length];
-        return color;
-      })
+      .nodeColor(getNodeColor)
       .nodeVal(node => {
-        if (node.isCore) return 12;
-        if (node.isHub) return 6;
-        if (highlightNodes.has(node.id)) return 4;
-        return 2;
+        // Small spheres: 1 for normal, slightly larger for special
+        if (node._isGhost) return 0.8;
+        if (node.isCore) return 3;
+        if (node.isHub) return 2;
+        if (highlightNodes.has(node.id)) return 1.5;
+        return 0.8;
       })
-      .nodeOpacity(0.9)
+      .nodeOpacity(node => node._isGhost ? 0.5 : 0.85)
+      .nodeRelSize(3)
       .linkColor(link => {
         if (highlightLinks.has(link)) return 'rgba(200, 200, 255, 0.8)';
-        return 'rgba(100, 100, 160, 0.35)';
+        return 'rgba(100, 100, 160, 0.3)';
       })
-      .linkWidth(link => highlightLinks.has(link) ? 1.5 : 0.4)
+      .linkWidth(link => highlightLinks.has(link) ? 1.5 : 0.3)
       .linkDirectionalParticles(link => highlightLinks.has(link) ? 2 : 0)
       .linkDirectionalParticleWidth(1.5)
       .linkDirectionalParticleColor(() => '#b8b8ff')
       .nodeThreeObjectExtend(true)
       .nodeThreeObject(node => {
+        // Text label offset to the right of the small sphere
         const sprite = new SpriteText(node.label || '');
-        sprite.color = node.isCore ? '#FFD700' :
+        sprite.color = node._isGhost ? 'rgba(232, 102, 176, 0.6)' :
+                       node.isCore ? '#FFD700' :
                        node.isHub ? '#FF6B8A' :
-                       'rgba(200, 200, 230, 0.7)';
-        sprite.textHeight = node.isCore ? 4 : node.isHub ? 3 : 2;
-        sprite.position.y = node.isCore ? 10 : 6;
+                       'rgba(200, 200, 230, 0.75)';
+        sprite.textHeight = node.isCore ? 3.5 : node.isHub ? 2.8 : 1.8;
+        // Position label to the right and slightly above the sphere
+        sprite.position.set(
+          node.isCore ? 6 : node.isHub ? 5 : 3.5,
+          node.isCore ? 2 : 1,
+          0
+        );
         sprite.fontWeight = node.isCore ? 'bold' : 'normal';
         return sprite;
       })
-      // Always show edge labels
+      // Edge labels
       .linkThreeObjectExtend(true)
       .linkThreeObject(link => {
         const text = link.label || link.type || '';
@@ -393,90 +599,182 @@
         const sprite = new SpriteText(text);
         sprite.color = highlightLinks.has(link)
           ? 'rgba(200, 200, 240, 0.9)'
-          : 'rgba(140, 140, 190, 0.45)';
-        sprite.textHeight = 1.2;
+          : 'rgba(140, 140, 190, 0.35)';
+        sprite.textHeight = 1.0;
         sprite.fontWeight = '400';
         return sprite;
       })
       .linkPositionUpdate((sprite, { start, end }) => {
         if (!sprite) return;
-        const mid = {
+        Object.assign(sprite.position, {
           x: (start.x + end.x) / 2,
           y: (start.y + end.y) / 2,
           z: (start.z + end.z) / 2,
-        };
-        Object.assign(sprite.position, mid);
+        });
       })
-      .onNodeClick(node => {
-        selectedNode = node;
-        highlightNodes.clear();
-        highlightLinks.clear();
-
-        if (node) {
-          highlightNodes.add(node.id);
-          const neighbors = [];
-          currentGraph.links.forEach(link => {
-            const srcId = typeof link.source === 'object' ? link.source.id : link.source;
-            const tgtId = typeof link.target === 'object' ? link.target.id : link.target;
-            if (srcId === node.id) {
-              highlightNodes.add(tgtId);
-              highlightLinks.add(link);
-              const tgtNode = currentGraph.nodes.find(n => n.id === tgtId);
-              neighbors.push({
-                label: tgtNode ? tgtNode.label : tgtId,
-                edgeLabel: link.label || link.type || '',
-                direction: 'out',
-              });
-            }
-            if (tgtId === node.id) {
-              highlightNodes.add(srcId);
-              highlightLinks.add(link);
-              const srcNode = currentGraph.nodes.find(n => n.id === srcId);
-              neighbors.push({
-                label: srcNode ? srcNode.label : srcId,
-                edgeLabel: link.label || link.type || '',
-                direction: 'in',
-              });
-            }
-          });
-
-          showInfoPanel(node, neighbors);
-          fetchMemories(node);
-        }
-
-        Graph.nodeColor(Graph.nodeColor())
-             .linkColor(Graph.linkColor())
-             .linkWidth(Graph.linkWidth())
-             .linkDirectionalParticles(Graph.linkDirectionalParticles())
-             .linkThreeObject(Graph.linkThreeObject());
-      })
+      .onNodeClick(onNodeClick)
       .onBackgroundClick(() => {
         highlightNodes.clear();
         highlightLinks.clear();
         selectedNode = null;
         hideInfoPanel();
-        Graph.nodeColor(Graph.nodeColor())
-             .linkColor(Graph.linkColor())
-             .linkWidth(Graph.linkWidth())
-             .linkDirectionalParticles(Graph.linkDirectionalParticles())
-             .linkThreeObject(Graph.linkThreeObject());
+        refreshVisuals();
       });
 
-    // ── Fetch and render ────────────────────────────────
+    function refreshVisuals() {
+      Graph.nodeColor(Graph.nodeColor())
+           .linkColor(Graph.linkColor())
+           .linkWidth(Graph.linkWidth())
+           .linkDirectionalParticles(Graph.linkDirectionalParticles())
+           .linkThreeObject(Graph.linkThreeObject());
+    }
 
+    // ── Node click handler ──────────────────────────
+    function onNodeClick(node) {
+      if (!node) return;
+      selectAndFocusNode(node, true);
+    }
+
+    function selectAndFocusNode(node, flyTo) {
+      selectedNode = node;
+      highlightNodes.clear();
+      highlightLinks.clear();
+      highlightNodes.add(node.id);
+
+      const neighbors = [];
+      currentGraph.links.forEach(link => {
+        const srcId = typeof link.source === 'object' ? link.source.id : link.source;
+        const tgtId = typeof link.target === 'object' ? link.target.id : link.target;
+        if (srcId === node.id) {
+          highlightNodes.add(tgtId);
+          highlightLinks.add(link);
+          const tgtNode = currentGraph.nodes.find(n => n.id === tgtId);
+          neighbors.push({
+            id: tgtId,
+            label: tgtNode ? tgtNode.label : tgtId,
+            edgeLabel: link.label || link.type || '',
+            direction: 'out',
+          });
+        }
+        if (tgtId === node.id) {
+          highlightNodes.add(srcId);
+          highlightLinks.add(link);
+          const srcNode = currentGraph.nodes.find(n => n.id === srcId);
+          neighbors.push({
+            id: srcId,
+            label: srcNode ? srcNode.label : srcId,
+            edgeLabel: link.label || link.type || '',
+            direction: 'in',
+          });
+        }
+      });
+
+      showInfoPanel(node, neighbors);
+      fetchMemories(node);
+      fetchDetail(node, neighbors);
+      fetchSuggestions(node, neighbors);
+      refreshVisuals();
+
+      if (flyTo) {
+        // Fly camera to node
+        const distance = 120;
+        const distRatio = 1 + distance / Math.hypot(node.x || 0, node.y || 0, node.z || 0);
+        Graph.cameraPosition(
+          { x: (node.x || 0) * distRatio, y: (node.y || 0) * distRatio, z: (node.z || 0) * distRatio },
+          { x: node.x || 0, y: node.y || 0, z: node.z || 0 },
+          1200
+        );
+      }
+    }
+
+    // ── Search ──────────────────────────────────────
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    let searchTimeout = null;
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      const q = searchInput.value.trim();
+      if (!q) {
+        searchResults.classList.remove('visible');
+        return;
+      }
+      searchTimeout = setTimeout(() => doSearch(q), 200);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        searchInput.blur();
+        searchResults.classList.remove('visible');
+      }
+    });
+
+    // Close search when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-wrapper')) {
+        searchResults.classList.remove('visible');
+      }
+    });
+
+    // Global keyboard shortcut: / to focus search
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement !== searchInput) {
+        e.preventDefault();
+        searchInput.focus();
+      }
+    });
+
+    async function doSearch(q) {
+      try {
+        const resp = await fetch('/api/search?q=' + encodeURIComponent(q));
+        const data = await resp.json();
+        searchResults.innerHTML = '';
+        if (data.results && data.results.length > 0) {
+          data.results.forEach(r => {
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.innerHTML = '<div class="sr-label">' + escapeHtml(r.label) + '</div>'
+              + (r.description ? '<div class="sr-desc">' + escapeHtml(r.description) + '</div>' : '');
+            div.addEventListener('click', () => {
+              searchResults.classList.remove('visible');
+              searchInput.value = r.label;
+              searchInput.blur();
+              // Find the node in the rendered graph and fly to it
+              const node = currentGraph.nodes.find(n => n.id === r.id);
+              if (node) selectAndFocusNode(node, true);
+            });
+            searchResults.appendChild(div);
+          });
+          searchResults.classList.add('visible');
+        } else {
+          searchResults.classList.remove('visible');
+        }
+      } catch (err) {
+        console.error('Search failed:', err);
+      }
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // ── Fetch and render ────────────────────────────
     async function loadGraph(topology) {
       currentTopology = topology;
       const loading = document.getElementById('loading');
       const loadingText = document.getElementById('loading-text');
       loading.classList.remove('hidden');
       loadingText.textContent = topology === 'raw' || !currentGraph
-        ? 'enriching thoughts with meaning…'
-        : 'reshaping topology…';
+        ? 'enriching thoughts with meaning...'
+        : 'reshaping topology...';
 
       try {
-        const resp = await fetch(`/api/graph?topology=${topology}`);
+        const resp = await fetch('/api/graph?topology=' + topology);
         const data = await resp.json();
         currentGraph = data;
+        ghostNodes.clear();
 
         // Configure forces per topology
         if (topology === 'centralized' && data.coreId) {
@@ -524,7 +822,6 @@
         Graph.graphData(data);
         updateStats(data);
 
-        // Reset highlight
         highlightNodes.clear();
         highlightLinks.clear();
         selectedNode = null;
@@ -537,13 +834,11 @@
       }
     }
 
-    // ── Info panel ──────────────────────────────────────
-
+    // ── Info panel ──────────────────────────────────
     function showInfoPanel(node, neighbors) {
       const panel = document.getElementById('info-panel');
       document.getElementById('info-title').textContent = node.label || node.id;
 
-      // Show description
       const descEl = document.getElementById('info-description');
       if (node.description) {
         descEl.textContent = node.description;
@@ -553,20 +848,36 @@
       }
 
       document.getElementById('info-connections').textContent =
-        `${neighbors.length} connection${neighbors.length !== 1 ? 's' : ''}`;
+        neighbors.length + ' connection' + (neighbors.length !== 1 ? 's' : '');
 
+      // Build navigable neighbor list
       const list = document.getElementById('info-list');
       list.innerHTML = '';
       neighbors.forEach(n => {
         const li = document.createElement('li');
-        const arrow = n.direction === 'out' ? '→' : '←';
-        li.innerHTML = `${arrow} <span class="edge-label">${n.edgeLabel}</span> <span class="neighbor-name">${n.label}</span>`;
+        const btn = document.createElement('button');
+        btn.className = 'nav-link';
+        btn.innerHTML =
+          '<span class="nav-arrow">' + (n.direction === 'out' ? '&rarr;' : '&larr;') + '</span>'
+          + '<span class="nav-edge">' + escapeHtml(n.edgeLabel) + '</span>'
+          + '<span class="nav-name">' + escapeHtml(n.label) + '</span>'
+          + '<span class="nav-goto">go &rarr;</span>';
+        btn.addEventListener('click', () => {
+          // Navigate to this neighbor
+          const targetNode = currentGraph.nodes.find(nd => nd.id === n.id);
+          if (targetNode) selectAndFocusNode(targetNode, true);
+        });
+        li.appendChild(btn);
         list.appendChild(li);
       });
 
-      // Reset memories
+      // Reset sections
+      document.getElementById('detail-section').style.display = 'none';
+      document.getElementById('detail-content').innerHTML = '';
       document.getElementById('memories-section').style.display = 'none';
       document.getElementById('memories-content').innerHTML = '';
+      document.getElementById('suggest-section').style.display = 'none';
+      document.getElementById('suggest-content').innerHTML = '';
 
       panel.classList.add('visible');
     }
@@ -575,17 +886,42 @@
       document.getElementById('info-panel').classList.remove('visible');
     }
 
-    // ── Fetch memories for a node ───────────────────────
+    // ── Fetch first-principles detail ───────────────
+    async function fetchDetail(node, neighbors) {
+      const section = document.getElementById('detail-section');
+      const content = document.getElementById('detail-content');
 
+      section.style.display = 'block';
+      content.innerHTML = '<div class="detail-loading">thinking from first principles...</div>';
+
+      try {
+        const neighborLabels = neighbors.map(n => n.label).join(',');
+        const resp = await fetch(
+          '/api/node/' + encodeURIComponent(node.id)
+          + '/detail?label=' + encodeURIComponent(node.label || '')
+          + '&neighbors=' + encodeURIComponent(neighborLabels)
+        );
+        const data = await resp.json();
+        if (data.detail) {
+          content.textContent = data.detail;
+        } else {
+          section.style.display = 'none';
+        }
+      } catch (err) {
+        section.style.display = 'none';
+      }
+    }
+
+    // ── Fetch memories for a node ───────────────────
     async function fetchMemories(node) {
       const section = document.getElementById('memories-section');
       const content = document.getElementById('memories-content');
 
       section.style.display = 'block';
-      content.innerHTML = '<div class="memories-loading">searching memories…</div>';
+      content.innerHTML = '<div class="memories-loading">searching memories...</div>';
 
       try {
-        const resp = await fetch(`/api/node/${encodeURIComponent(node.id)}/memories?label=${encodeURIComponent(node.label || '')}`);
+        const resp = await fetch('/api/node/' + encodeURIComponent(node.id) + '/memories?label=' + encodeURIComponent(node.label || ''));
         const data = await resp.json();
 
         if (data.memories && data.memories.length > 0) {
@@ -604,18 +940,111 @@
       }
     }
 
-    // ── Stats ────────────────────────────────────────────
+    // ── Fetch suggestions for leaf nodes ────────────
+    async function fetchSuggestions(node, neighbors) {
+      // Only suggest for leaf nodes (0-2 connections) or always show
+      const section = document.getElementById('suggest-section');
+      const content = document.getElementById('suggest-content');
 
+      if (neighbors.length > 5) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
+      content.innerHTML = '<div class="memories-loading">finding related concepts...</div>';
+
+      try {
+        const resp = await fetch(
+          '/api/node/' + encodeURIComponent(node.id)
+          + '/suggest?label=' + encodeURIComponent(node.label || '')
+        );
+        const data = await resp.json();
+
+        if (data.suggestions && data.suggestions.length > 0) {
+          content.innerHTML = '';
+          data.suggestions.forEach(s => {
+            const btn = document.createElement('button');
+            btn.className = 'ghost-btn';
+            btn.innerHTML =
+              '<div class="ghost-dot"></div>'
+              + '<div>'
+              + '<div class="ghost-label">' + escapeHtml(s.label) + '</div>'
+              + '<div class="ghost-reason">' + escapeHtml(s.reason || '') + '</div>'
+              + '</div>';
+            btn.addEventListener('click', () => materializeGhost(btn, s, node));
+            content.appendChild(btn);
+          });
+        } else {
+          section.style.display = 'none';
+        }
+      } catch (err) {
+        section.style.display = 'none';
+      }
+    }
+
+    // ── Materialize ghost node ──────────────────────
+    async function materializeGhost(btnEl, suggestion, parentNode) {
+      if (btnEl.classList.contains('materialized')) return;
+      btnEl.classList.add('materialized');
+
+      try {
+        const resp = await fetch(
+          '/api/node/' + encodeURIComponent(parentNode.id)
+          + '/materialize?label=' + encodeURIComponent(suggestion.label)
+          + '&reason=' + encodeURIComponent(suggestion.reason || ''),
+          { method: 'POST' }
+        );
+        const data = await resp.json();
+
+        if (data.success && data.node) {
+          // Add the new node + link to the live graph
+          const gd = Graph.graphData();
+          const newNode = {
+            ...data.node,
+            group: parentNode.group || 0,
+            x: (parentNode.x || 0) + (Math.random() - 0.5) * 40,
+            y: (parentNode.y || 0) + (Math.random() - 0.5) * 40,
+            z: (parentNode.z || 0) + (Math.random() - 0.5) * 40,
+          };
+
+          gd.nodes.push(newNode);
+          gd.links.push({
+            source: data.node.id,
+            target: parentNode.id,
+            type: 'SUGGESTED_BY',
+            label: suggestion.reason || 'explore further',
+          });
+
+          // Also update currentGraph
+          currentGraph.nodes.push(newNode);
+          currentGraph.links.push({
+            source: data.node.id,
+            target: parentNode.id,
+            type: 'SUGGESTED_BY',
+            label: suggestion.reason || 'explore further',
+          });
+
+          Graph.graphData(gd);
+          updateStats(currentGraph);
+        }
+      } catch (err) {
+        console.error('Materialize failed:', err);
+        btnEl.classList.remove('materialized');
+      }
+    }
+
+    // ── Stats ───────────────────────────────────────
     function updateStats(data) {
       const stats = document.getElementById('stats');
       const nodeCount = data.nodes ? data.nodes.length : 0;
       const linkCount = data.links ? data.links.length : 0;
-      const clusterInfo = data.clusters ? `${data.clusters} clusters` : '';
-      stats.innerHTML = `${nodeCount} nodes &middot; ${linkCount} edges${clusterInfo ? ' &middot; ' + clusterInfo : ''}`;
+      const clusterInfo = data.clusters ? data.clusters + ' clusters' : '';
+      stats.innerHTML = nodeCount + ' nodes &middot; ' + linkCount + ' edges'
+        + (clusterInfo ? ' &middot; ' + clusterInfo : '');
     }
 
-    // ── Topology buttons ────────────────────────────────
-
+    // ── Topology buttons ────────────────────────────
     document.querySelectorAll('.topo-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.topo-btn').forEach(b => b.classList.remove('active'));
@@ -631,8 +1060,7 @@
       });
     });
 
-    // ── Init ────────────────────────────────────────────
-
+    // ── Init ────────────────────────────────────────
     loadGraph('raw');
   </script>
 

@@ -270,6 +270,152 @@ def get_node_memories(node_label: str, user_id: str = "augusto") -> list[dict]:
         return []
 
 
+# ── Search ───────────────────────────────────────────────────────────────
+
+
+def search_nodes(query: str, graph: dict) -> list[dict]:
+    """Fuzzy search nodes by label. Returns best matches sorted by relevance."""
+    query_lower = query.lower().strip()
+    if not query_lower:
+        return []
+
+    scored = []
+    for node in graph["nodes"]:
+        label = (node.get("label") or "").lower()
+        if not label:
+            continue
+        # Exact match
+        if label == query_lower:
+            scored.append((0, node))
+        # Starts with
+        elif label.startswith(query_lower):
+            scored.append((1, node))
+        # Contains
+        elif query_lower in label:
+            scored.append((2, node))
+        # Any query word appears in label
+        elif any(w in label for w in query_lower.split()):
+            scored.append((3, node))
+
+    scored.sort(key=lambda x: x[0])
+    return [s[1] for s in scored[:10]]
+
+
+# ── Suggest related concepts for leaf nodes ──────────────────────────────
+
+
+async def suggest_related(node_label: str, existing_labels: list[str]) -> list[dict]:
+    """Use LLM to suggest concepts related to a leaf node using first principles.
+
+    Returns a list of {label, reason} suggestions that don't already exist.
+    """
+    existing_set = {l.lower() for l in existing_labels}
+
+    client = OpenAI()
+    prompt = (
+        "You are helping someone explore their knowledge graph by suggesting related concepts.\n"
+        f"The concept is: '{node_label}'\n"
+        f"Concepts already in their graph: {json.dumps(existing_labels[:50])}\n\n"
+        "Using first principles thinking, suggest 3-5 related concepts that would deepen "
+        "understanding. For each suggestion:\n"
+        "- Break the concept down to its fundamental components\n"
+        "- Suggest concepts that reveal WHY this thing exists, HOW it works, or WHAT it connects to\n"
+        "- Prefer foundational concepts over surface-level associations\n"
+        "- Do NOT suggest concepts already in the graph\n\n"
+        "Return a JSON object with a 'suggestions' array of objects with 'label' and 'reason' fields.\n"
+        "The reason should explain the first-principles connection (10-15 words)."
+    )
+
+    try:
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,
+            temperature=0.7,
+            response_format={"type": "json_object"},
+        )
+        text = response.choices[0].message.content.strip()
+        parsed = json.loads(text)
+        results = parsed.get("suggestions", [])
+        # Filter out any that already exist
+        return [
+            s for s in results
+            if isinstance(s, dict) and s.get("label", "").lower() not in existing_set
+        ][:5]
+    except Exception as e:
+        logger.warning("Suggest related failed for '%s': %s", node_label, e)
+        return []
+
+
+# ── Detailed knowledge panel ─────────────────────────────────────────────
+
+
+async def get_concept_detail(node_label: str, neighbors: list[str]) -> str:
+    """Generate a first-principles knowledge panel for a concrete concept.
+
+    Returns a detailed text explanation (50-100 words) grounded in fundamentals.
+    """
+    client = OpenAI()
+    prompt = (
+        f"The concept is: '{node_label}'\n"
+        f"It connects to these ideas in someone's mind: {json.dumps(neighbors[:10])}\n\n"
+        "Write a concise first-principles explanation (50-100 words) of this concept. "
+        "Break it down to its fundamentals:\n"
+        "- What is this at its core?\n"
+        "- Why does it matter or exist?\n"
+        "- If it involves history, math, science, or definitions, include the essential facts.\n"
+        "- Connect it back to the person's related concepts where relevant.\n\n"
+        "Be precise, informative, and avoid filler. Write as if explaining to a curious, intelligent person. "
+        "Use only ASCII characters."
+    )
+
+    try:
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0.5,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.warning("Concept detail failed for '%s': %s", node_label, e)
+        return ""
+
+
+# ── Materialize ghost node into Memgraph ─────────────────────────────────
+
+
+def materialize_ghost_node(label: str, parent_id: str, reason: str) -> dict:
+    """Create a new node in Memgraph and connect it to the parent node."""
+    driver = _get_driver()
+    new_node = None
+
+    with driver.session() as session:
+        # Create node and relationship
+        result = session.run(
+            "MATCH (parent) WHERE elementId(parent) = $parent_id "
+            "CREATE (n {name: $label})-[r:SUGGESTED_BY]->(parent) "
+            "RETURN n, r",
+            parent_id=parent_id,
+            label=label,
+        )
+        record = result.single()
+        if record:
+            node = record["n"]
+            nid = str(node.element_id)
+            new_node = {
+                "id": nid,
+                "label": label,
+                "properties": dict(node),
+                "description": reason,
+            }
+
+    driver.close()
+    return new_node
+
+
 # ── Topology: Centralized ────────────────────────────────────────────────
 
 
