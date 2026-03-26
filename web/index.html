@@ -237,6 +237,34 @@
     .memory-item:last-child { margin-bottom: 0; }
     .memories-loading { font-size: 11px; color: #555; font-style: italic; }
 
+    /* ── Selected node label overlay ──────────────── */
+    #selected-label {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 90;
+      font-size: 28px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      text-shadow: 0 0 40px rgba(255,255,255,0.15);
+    }
+    #selected-label.visible { opacity: 1; }
+    #selected-label .sel-desc {
+      display: block;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+      text-transform: none;
+      color: #888;
+      margin-top: 6px;
+      font-style: italic;
+    }
+
     /* ── Stats ────────────────────────────────────── */
     #stats {
       position: fixed; bottom: 24px; right: 28px; z-index: 100;
@@ -303,6 +331,9 @@
 
   <div class="topo-desc" id="topo-desc"></div>
 
+  <!-- Centered label when a node is selected -->
+  <div id="selected-label"></div>
+
   <div id="info-panel">
     <h3 id="info-title"></h3>
     <div id="info-description"></div>
@@ -333,23 +364,11 @@
       distributed: 'Equal mesh -- every edge labeled with how ideas connect',
     };
 
-    // Muted cluster palette -- distinct but not overpowering on dark bg
+    // Muted cluster palette
     const CLUSTER_COLORS = [
-      '#8CB4D5', // steel blue
-      '#D4956A', // warm clay
-      '#7DB889', // sage
-      '#C47D7D', // dusty rose
-      '#B8A062', // amber
-      '#9B8EC4', // lavender
-      '#5DAFAF', // teal
-      '#CC8E6F', // terra cotta
-      '#82A6C4', // denim
-      '#A3C47D', // lime sage
-      '#CB85A4', // mauve
-      '#7DBDBD', // aqua
-      '#B0A36D', // olive
-      '#9595C4', // periwinkle
-      '#D49090', // salmon
+      '#8CB4D5', '#D4956A', '#7DB889', '#C47D7D', '#B8A062',
+      '#9B8EC4', '#5DAFAF', '#CC8E6F', '#82A6C4', '#A3C47D',
+      '#CB85A4', '#7DBDBD', '#B0A36D', '#9595C4', '#D49090',
     ];
 
     let currentGraph = null;
@@ -364,6 +383,8 @@
     const Graph = ForceGraph3D()(document.getElementById('graph-container'))
       .backgroundColor('#050507')
       .showNavInfo(false)
+      // Improve zoom: increase control speed and set reasonable bounds
+      .enableNavigationControls(true)
       .nodeLabel(node => {
         if (node._isGhost) return node.label + ' (click to explore)';
         if (node.description) {
@@ -386,14 +407,18 @@
       })
       .nodeOpacity(node => node._isGhost ? 0.3 : 0.9)
       .nodeRelSize(2.5)
+      // 1. Solid high-contrast labels  2. Edges: solid for selected, softer otherwise
       .linkColor(link => {
         if (link._isGhost) return 'rgba(255,255,255,0.06)';
-        if (highlightLinks.has(link)) return 'rgba(255,255,255,0.7)';
-        return 'rgba(255,255,255,0.12)';
+        if (highlightLinks.has(link)) return '#ffffff';           // full solid white for selected edges
+        if (selectedNode) return 'rgba(255,255,255,0.04)';        // very dim when something is selected
+        return 'rgba(255,255,255,0.18)';                          // default: visible but not overpowering
       })
       .linkWidth(link => {
         if (link._isGhost) return 0.2;
-        return highlightLinks.has(link) ? 1.2 : 0.3;
+        if (highlightLinks.has(link)) return 1.5;                 // thicker for selected
+        if (selectedNode) return 0.15;                             // thinner for non-selected when something active
+        return 0.4;
       })
       .linkDirectionalParticles(link => highlightLinks.has(link) ? 2 : 0)
       .linkDirectionalParticleWidth(1.2)
@@ -408,12 +433,12 @@
           sprite.color = 'rgba(255,255,255,0.25)';
           sprite.textHeight = 1.5;
         } else {
-          // Tint label with cluster color
+          // 1. Solid high-contrast colors per cluster
           const clusterColor = CLUSTER_COLORS[(node.group || 0) % CLUSTER_COLORS.length];
           sprite.color = highlightNodes.has(node.id) ? '#ffffff' : clusterColor;
           sprite.textHeight = node.isCore ? 3.2 : node.isHub ? 2.6 : 1.8;
         }
-        // Position to the right of the white sphere
+        // Position label to the right of the sphere
         sprite.position.set(
           node.isCore ? 5 : node.isHub ? 4 : 3,
           0.5,
@@ -428,7 +453,8 @@
         if (!text || link._isGhost) return null;
         const sprite = new SpriteText(text);
         sprite.fontFace = 'Gellix, sans-serif';
-        sprite.color = highlightLinks.has(link) ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.15)';
+        // Edge labels: bright for selected edges, dim otherwise
+        sprite.color = highlightLinks.has(link) ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.12)';
         sprite.textHeight = 0.9;
         sprite.fontWeight = '400';
         return sprite;
@@ -448,8 +474,20 @@
         highlightLinks.clear();
         selectedNode = null;
         hideInfoPanel();
+        hideSelectedLabel();
         refreshVisuals();
       });
+
+    // 3. Fix zoom: configure orbit controls for smoother zoom
+    const controls = Graph.controls();
+    if (controls) {
+      controls.zoomSpeed = 1.5;          // faster zoom
+      controls.rotateSpeed = 0.8;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.12;
+      controls.minDistance = 30;          // don't let camera clip into nodes
+      controls.maxDistance = 800;         // reasonable max zoom out
+    }
 
     function refreshVisuals() {
       Graph.nodeColor(Graph.nodeColor())
@@ -460,11 +498,21 @@
            .linkThreeObject(Graph.linkThreeObject());
     }
 
+    // ── 5. Selected label centered on screen ────────
+    function showSelectedLabel(node) {
+      const el = document.getElementById('selected-label');
+      el.innerHTML = esc(node.label || '')
+        + (node.description ? '<span class="sel-desc">' + esc(node.description) + '</span>' : '');
+      el.classList.add('visible');
+    }
+    function hideSelectedLabel() {
+      document.getElementById('selected-label').classList.remove('visible');
+    }
+
     // ── Node click ──────────────────────────────────
     function onNodeClick(node) {
       if (!node) return;
 
-      // If clicking a ghost node, materialize it
       if (node._isGhost) {
         materializeGhostNode(node);
         return;
@@ -499,13 +547,14 @@
       });
 
       showInfoPanel(node, neighbors);
+      showSelectedLabel(node);   // 5. Center the word on screen
       fetchMemories(node);
       fetchDetail(node, neighbors);
-      // Spawn ghost suggestions in 3D
       spawnGhostSuggestions(node);
       refreshVisuals();
 
       if (flyTo) {
+        // Fly camera so the node is centered
         const distance = 120;
         const dist = Math.hypot(node.x || 0, node.y || 0, node.z || 0) || 1;
         const ratio = 1 + distance / dist;
@@ -530,7 +579,6 @@
     }
 
     async function spawnGhostSuggestions(parentNode) {
-      // Only for nodes with fewer connections
       const degree = currentGraph.links.filter(l => {
         const s = typeof l.source === 'object' ? l.source.id : l.source;
         const t = typeof l.target === 'object' ? l.target.id : l.target;
@@ -547,7 +595,7 @@
         const data = await resp.json();
 
         if (!data.suggestions || data.suggestions.length === 0) return;
-        if (selectedNode !== parentNode) return; // User moved on
+        if (selectedNode !== parentNode) return;
 
         const gd = Graph.graphData();
         const angle_step = (2 * Math.PI) / data.suggestions.length;
@@ -603,14 +651,12 @@
         const data = await resp.json();
 
         if (data.success && data.node) {
-          // Replace ghost with real node
           ghostNode._isGhost = false;
           ghostNode.id = data.node.id;
           ghostNode.label = data.node.label;
           ghostNode.description = data.node.description || suggestion.reason || '';
           ghostNodeIds.delete(ghostNode.id);
 
-          // Update the link too
           const gd = Graph.graphData();
           gd.links.forEach(l => {
             if (l._isGhost && (typeof l.source === 'object' ? l.source.id : l.source) === ghostNode.id) {
@@ -630,14 +676,12 @@
 
     // ── Cluster labels in 3D ────────────────────────
     function renderClusterLabels(data) {
-      // Remove old cluster labels
       clusterLabelObjects.forEach(obj => Graph.scene().remove(obj));
       clusterLabelObjects = [];
 
       const clusterNames = data.clusterNames || {};
       if (!clusterNames || Object.keys(clusterNames).length === 0) return;
 
-      // Wait for positions to settle
       setTimeout(() => {
         const nodes = Graph.graphData().nodes;
         const groups = {};
@@ -726,6 +770,45 @@
 
     function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+    // ── 4. Brain-shaped force layout ────────────────
+    // Applies an ellipsoidal constraint that pulls nodes into a brain-like shape:
+    // wider on left/right (x), shorter on top/bottom (y), shallow front/back (z)
+    function brainShapeForce(alpha) {
+      const nodes = Graph.graphData().nodes;
+      // Target ellipsoid radii
+      const RX = 180;   // wide (left hemisphere / right hemisphere)
+      const RY = 130;   // tall
+      const RZ = 140;   // depth (front to back)
+      const k = alpha * 0.02;  // gentle pull
+
+      nodes.forEach(n => {
+        if (n._isGhost) return;
+        const x = n.x || 0;
+        const y = n.y || 0;
+        const z = n.z || 0;
+
+        // Distance from center normalized by ellipsoid radii
+        const r = Math.sqrt((x*x)/(RX*RX) + (y*y)/(RY*RY) + (z*z)/(RZ*RZ));
+        if (r < 0.01) return;
+
+        // If outside the ellipsoid, push toward the surface
+        // If inside, gently push outward to fill the volume
+        let targetR;
+        if (r > 1) {
+          targetR = 1 / r;  // compress to surface
+        } else {
+          targetR = 1;  // let it stay
+        }
+
+        if (r > 1) {
+          const factor = k * (1 - targetR);
+          n.vx = (n.vx || 0) - x * factor;
+          n.vy = (n.vy || 0) - y * factor;
+          n.vz = (n.vz || 0) - z * factor;
+        }
+      });
+    }
+
     // ── Load graph ──────────────────────────────────
     async function loadGraph(topology) {
       currentTopology = topology;
@@ -739,6 +822,9 @@
         const data = await resp.json();
         currentGraph = data;
         ghostNodeIds.clear();
+
+        // Always apply brain-shape force
+        Graph.d3Force('brain', brainShapeForce);
 
         if (topology === 'centralized' && data.coreId) {
           Graph.d3Force('center', null);
@@ -785,6 +871,7 @@
         highlightLinks.clear();
         selectedNode = null;
         hideInfoPanel();
+        hideSelectedLabel();
 
       } catch (err) {
         console.error('Failed to load graph:', err);
