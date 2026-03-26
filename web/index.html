@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solace — Shapes of Thought</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0e0e8;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* ── Header ──────────────────────────────────────── */
+    #header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      background: linear-gradient(180deg, rgba(10,10,15,0.95) 0%, rgba(10,10,15,0) 100%);
+      pointer-events: none;
+    }
+
+    #header > * { pointer-events: auto; }
+
+    .logo {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #8888aa;
+    }
+
+    .logo span {
+      color: #b8b8ff;
+    }
+
+    /* ── Topology selector ───────────────────────────── */
+    .topology-bar {
+      display: flex;
+      gap: 4px;
+      background: rgba(20, 20, 30, 0.8);
+      border: 1px solid rgba(120, 120, 180, 0.15);
+      border-radius: 10px;
+      padding: 4px;
+      backdrop-filter: blur(12px);
+    }
+
+    .topo-btn {
+      background: transparent;
+      border: none;
+      color: #6666880;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      padding: 8px 18px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-family: inherit;
+    }
+
+    .topo-btn:hover {
+      color: #b8b8ff;
+      background: rgba(120, 120, 200, 0.08);
+    }
+
+    .topo-btn.active {
+      color: #e0e0ff;
+      background: rgba(100, 100, 200, 0.2);
+      box-shadow: 0 0 12px rgba(120, 120, 255, 0.1);
+    }
+
+    /* ── Info panel ──────────────────────────────────── */
+    #info-panel {
+      position: fixed;
+      bottom: 24px;
+      left: 28px;
+      z-index: 100;
+      max-width: 320px;
+      background: rgba(15, 15, 22, 0.9);
+      border: 1px solid rgba(120, 120, 180, 0.12);
+      border-radius: 12px;
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+
+    #info-panel.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    #info-panel h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #c8c8ff;
+      margin-bottom: 8px;
+    }
+
+    #info-panel .connections {
+      font-size: 12px;
+      color: #7777aa;
+      margin-bottom: 12px;
+    }
+
+    #info-panel ul {
+      list-style: none;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    #info-panel li {
+      font-size: 12px;
+      color: #9999bb;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(120, 120, 180, 0.06);
+    }
+
+    #info-panel li:last-child { border-bottom: none; }
+
+    .edge-label {
+      color: #aaaadd;
+      font-weight: 500;
+    }
+
+    /* ── Stats ────────────────────────────────────────── */
+    #stats {
+      position: fixed;
+      bottom: 24px;
+      right: 28px;
+      z-index: 100;
+      font-size: 11px;
+      color: #44446a;
+      text-align: right;
+      line-height: 1.6;
+    }
+
+    /* ── Loading ──────────────────────────────────────── */
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0f;
+      z-index: 200;
+      transition: opacity 0.5s ease;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loader {
+      width: 40px;
+      height: 40px;
+      border: 2px solid rgba(120, 120, 200, 0.15);
+      border-top-color: #8888cc;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Description tooltip ─────────────────────────── */
+    .topo-desc {
+      position: fixed;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      font-size: 12px;
+      color: #6666880;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+
+    .topo-desc.visible {
+      opacity: 1;
+    }
+
+    /* ── Graph container ─────────────────────────────── */
+    #graph-container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading"><div class="loader"></div></div>
+
+  <div id="header">
+    <div class="logo">Solace <span>// shapes of thought</span></div>
+    <div class="topology-bar">
+      <button class="topo-btn active" data-topology="raw">All</button>
+      <button class="topo-btn" data-topology="centralized">Centralized</button>
+      <button class="topo-btn" data-topology="decentralized">Decentralized</button>
+      <button class="topo-btn" data-topology="distributed">Distributed</button>
+    </div>
+  </div>
+
+  <div class="topo-desc" id="topo-desc"></div>
+
+  <div id="info-panel">
+    <h3 id="info-title"></h3>
+    <div class="connections" id="info-connections"></div>
+    <ul id="info-list"></ul>
+  </div>
+
+  <div id="stats"></div>
+
+  <div id="graph-container"></div>
+
+  <!-- Three.js + 3D Force Graph (served locally) -->
+  <script src="/static/three.min.js"></script>
+  <script src="/static/three-spritetext.min.js"></script>
+  <script src="/static/3d-force-graph.min.js"></script>
+
+  <script>
+
+    const DESCRIPTIONS = {
+      raw: 'Full graph — all entities and relationships as stored',
+      centralized: 'One core idea connecting all others — hub and spoke',
+      decentralized: 'Ideas cluster into themed hubs — communities of thought',
+      distributed: 'Every edge labeled by LLM — how ideas connect, in words',
+    };
+
+    const CLUSTER_COLORS = [
+      '#7B68EE', '#FF6B8A', '#4ECDC4', '#FFD93D', '#6BCB77',
+      '#9B59B6', '#E67E22', '#1ABC9C', '#E74C3C', '#3498DB',
+      '#F39C12', '#2ECC71', '#E91E63', '#00BCD4', '#FF5722',
+    ];
+
+    let currentGraph = null;
+    let currentTopology = 'raw';
+    let highlightNodes = new Set();
+    let highlightLinks = new Set();
+    let selectedNode = null;
+
+    // ── Initialize 3D Graph ─────────────────────────────
+
+    const Graph = ForceGraph3D()(document.getElementById('graph-container'))
+      .backgroundColor('#0a0a0f')
+      .showNavInfo(false)
+      .nodeLabel('')
+      .nodeColor(node => {
+        if (highlightNodes.has(node.id)) return '#ffffff';
+        if (node.isCore) return '#FFD700';
+        if (node.isHub) return '#FF6B8A';
+        const color = CLUSTER_COLORS[node.group % CLUSTER_COLORS.length];
+        return color;
+      })
+      .nodeVal(node => {
+        if (node.isCore) return 12;
+        if (node.isHub) return 6;
+        if (highlightNodes.has(node.id)) return 4;
+        return 2;
+      })
+      .nodeOpacity(0.9)
+      .linkColor(link => {
+        if (highlightLinks.has(link)) return 'rgba(200, 200, 255, 0.8)';
+        return 'rgba(100, 100, 160, 0.4)';
+      })
+      .linkWidth(link => highlightLinks.has(link) ? 1.5 : 0.5)
+      .linkDirectionalParticles(link => highlightLinks.has(link) ? 2 : 0)
+      .linkDirectionalParticleWidth(1.5)
+      .linkDirectionalParticleColor(() => '#b8b8ff')
+      .nodeThreeObjectExtend(true)
+      .nodeThreeObject(node => {
+        // Add text sprite label
+        const sprite = new SpriteText(node.label || '');
+        sprite.color = node.isCore ? '#FFD700' :
+                       node.isHub ? '#FF6B8A' :
+                       'rgba(200, 200, 230, 0.7)';
+        sprite.textHeight = node.isCore ? 4 : node.isHub ? 3 : 2;
+        sprite.position.y = node.isCore ? 10 : 6;
+        sprite.fontWeight = node.isCore ? 'bold' : 'normal';
+        return sprite;
+      })
+      .onNodeClick(node => {
+        selectedNode = node;
+        highlightNodes.clear();
+        highlightLinks.clear();
+
+        if (node) {
+          highlightNodes.add(node.id);
+          const neighbors = [];
+          currentGraph.links.forEach(link => {
+            const srcId = typeof link.source === 'object' ? link.source.id : link.source;
+            const tgtId = typeof link.target === 'object' ? link.target.id : link.target;
+            if (srcId === node.id) {
+              highlightNodes.add(tgtId);
+              highlightLinks.add(link);
+              const tgtNode = currentGraph.nodes.find(n => n.id === tgtId);
+              neighbors.push({
+                label: tgtNode ? tgtNode.label : tgtId,
+                edgeType: link.label || link.type || '',
+                direction: 'out',
+              });
+            }
+            if (tgtId === node.id) {
+              highlightNodes.add(srcId);
+              highlightLinks.add(link);
+              const srcNode = currentGraph.nodes.find(n => n.id === srcId);
+              neighbors.push({
+                label: srcNode ? srcNode.label : srcId,
+                edgeType: link.label || link.type || '',
+                direction: 'in',
+              });
+            }
+          });
+
+          showInfoPanel(node, neighbors);
+        }
+
+        Graph.nodeColor(Graph.nodeColor())
+             .linkColor(Graph.linkColor())
+             .linkWidth(Graph.linkWidth())
+             .linkDirectionalParticles(Graph.linkDirectionalParticles());
+      })
+      .onBackgroundClick(() => {
+        highlightNodes.clear();
+        highlightLinks.clear();
+        selectedNode = null;
+        hideInfoPanel();
+        Graph.nodeColor(Graph.nodeColor())
+             .linkColor(Graph.linkColor())
+             .linkWidth(Graph.linkWidth())
+             .linkDirectionalParticles(Graph.linkDirectionalParticles());
+      });
+
+    // ── Edge labels for distributed mode ────────────────
+
+    function updateLinkLabels() {
+      if (currentTopology === 'distributed') {
+        Graph
+          .linkThreeObjectExtend(true)
+          .linkThreeObject(link => {
+            const text = link.label || link.type || '';
+            if (!text) return null;
+            const sprite = new SpriteText(text);
+            sprite.color = 'rgba(170, 170, 220, 0.6)';
+            sprite.textHeight = 1.5;
+            sprite.fontWeight = '400';
+            return sprite;
+          })
+          .linkPositionUpdate((sprite, { start, end }) => {
+            if (!sprite) return;
+            const mid = {
+              x: (start.x + end.x) / 2,
+              y: (start.y + end.y) / 2,
+              z: (start.z + end.z) / 2,
+            };
+            Object.assign(sprite.position, mid);
+          });
+      } else {
+        Graph
+          .linkThreeObject(() => null)
+          .linkPositionUpdate(null);
+      }
+    }
+
+    // ── Fetch and render ────────────────────────────────
+
+    async function loadGraph(topology) {
+      currentTopology = topology;
+      const loading = document.getElementById('loading');
+      loading.classList.remove('hidden');
+
+      try {
+        const resp = await fetch(`/api/graph?topology=${topology}`);
+        const data = await resp.json();
+        currentGraph = data;
+
+        // Configure forces per topology
+        if (topology === 'centralized' && data.coreId) {
+          Graph.d3Force('center', null);
+          Graph.d3Force('charge').strength(-120);
+        } else if (topology === 'decentralized') {
+          Graph.d3Force('charge').strength(-80);
+          // Cluster force: nodes in same group attract
+          Graph.d3Force('cluster', alpha => {
+            const nodes = Graph.graphData().nodes;
+            const centroids = {};
+            const counts = {};
+            nodes.forEach(n => {
+              if (!centroids[n.group]) {
+                centroids[n.group] = { x: 0, y: 0, z: 0 };
+                counts[n.group] = 0;
+              }
+              centroids[n.group].x += n.x || 0;
+              centroids[n.group].y += n.y || 0;
+              centroids[n.group].z += n.z || 0;
+              counts[n.group]++;
+            });
+            Object.keys(centroids).forEach(g => {
+              centroids[g].x /= counts[g];
+              centroids[g].y /= counts[g];
+              centroids[g].z /= counts[g];
+            });
+            const k = alpha * 0.3;
+            nodes.forEach(n => {
+              const c = centroids[n.group];
+              if (!c) return;
+              n.vx = (n.vx || 0) + (c.x - (n.x || 0)) * k;
+              n.vy = (n.vy || 0) + (c.y - (n.y || 0)) * k;
+              n.vz = (n.vz || 0) + (c.z - (n.z || 0)) * k;
+            });
+          });
+        } else if (topology === 'distributed') {
+          Graph.d3Force('charge').strength(-150);
+          Graph.d3Force('cluster', null);
+        } else {
+          Graph.d3Force('charge').strength(-60);
+          Graph.d3Force('cluster', null);
+        }
+
+        Graph.graphData(data);
+        updateLinkLabels();
+        updateStats(data);
+
+        // Reset highlight
+        highlightNodes.clear();
+        highlightLinks.clear();
+        selectedNode = null;
+        hideInfoPanel();
+
+      } catch (err) {
+        console.error('Failed to load graph:', err);
+      } finally {
+        setTimeout(() => loading.classList.add('hidden'), 300);
+      }
+    }
+
+    // ── Info panel ──────────────────────────────────────
+
+    function showInfoPanel(node, neighbors) {
+      const panel = document.getElementById('info-panel');
+      document.getElementById('info-title').textContent = node.label || node.id;
+      document.getElementById('info-connections').textContent =
+        `${neighbors.length} connection${neighbors.length !== 1 ? 's' : ''}`;
+
+      const list = document.getElementById('info-list');
+      list.innerHTML = '';
+      neighbors.forEach(n => {
+        const li = document.createElement('li');
+        const arrow = n.direction === 'out' ? '\u2192' : '\u2190';
+        const edgeText = n.edgeType ? `<span class="edge-label">${n.edgeType}</span> ` : '';
+        li.innerHTML = `${arrow} ${edgeText}${n.label}`;
+        list.appendChild(li);
+      });
+
+      panel.classList.add('visible');
+    }
+
+    function hideInfoPanel() {
+      document.getElementById('info-panel').classList.remove('visible');
+    }
+
+    // ── Stats ────────────────────────────────────────────
+
+    function updateStats(data) {
+      const stats = document.getElementById('stats');
+      const nodeCount = data.nodes ? data.nodes.length : 0;
+      const linkCount = data.links ? data.links.length : 0;
+      const clusterInfo = data.clusters ? `${data.clusters} clusters` : '';
+      stats.innerHTML = `${nodeCount} nodes &middot; ${linkCount} edges${clusterInfo ? ' &middot; ' + clusterInfo : ''}`;
+    }
+
+    // ── Topology buttons ────────────────────────────────
+
+    document.querySelectorAll('.topo-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.topo-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const topology = btn.dataset.topology;
+
+        // Show description briefly
+        const desc = document.getElementById('topo-desc');
+        desc.textContent = DESCRIPTIONS[topology] || '';
+        desc.classList.add('visible');
+        setTimeout(() => desc.classList.remove('visible'), 3000);
+
+        loadGraph(topology);
+      });
+    });
+
+    // ── Init ────────────────────────────────────────────
+
+    loadGraph('raw');
+  </script>
+
+</body>
+</html>
