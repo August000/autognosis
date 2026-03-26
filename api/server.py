@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from enum import Enum
 from pathlib import Path
 
@@ -9,7 +10,13 @@ from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.graph_queries import get_raw_graph, to_centralized, to_decentralized, to_distributed
+from api.graph_queries import (
+    get_raw_graph,
+    enrich_graph,
+    get_node_memories,
+    to_centralized,
+    to_decentralized,
+)
 
 app = FastAPI(title="Solace Graph Visualizer")
 
@@ -30,22 +37,36 @@ async def index():
 
 @app.get("/api/graph")
 async def graph(topology: Topology = Query(default=Topology.raw)):
-    """Return graph data shaped for the requested topology."""
+    """Return enriched graph data shaped for the requested topology."""
     raw = get_raw_graph()
 
+    # Enrich all nodes with descriptions and all edges with labels (cached after first call)
+    enriched = await enrich_graph(raw)
+
     if topology == Topology.centralized:
-        return to_centralized(raw)
+        return to_centralized(enriched)
     elif topology == Topology.decentralized:
-        return to_decentralized(raw)
+        return to_decentralized(enriched)
     elif topology == Topology.distributed:
-        return await to_distributed(raw)
+        # Distributed uses the same enriched graph, just with different force layout
+        for n in enriched["nodes"]:
+            n.setdefault("group", 0)
+        return enriched
     else:
-        # Raw: just add default group
-        for n in raw["nodes"]:
-            n["group"] = 0
-        return raw
+        for n in enriched["nodes"]:
+            n.setdefault("group", 0)
+        return enriched
 
 
-# Serve static assets (CSS, JS if we ever add them)
+@app.get("/api/node/{node_id}/memories")
+async def node_memories(node_id: str, label: str = ""):
+    """Return vector-search memories related to a node."""
+    if not label:
+        return {"memories": []}
+    memories = await asyncio.to_thread(get_node_memories, label)
+    return {"memories": memories}
+
+
+# Serve static assets
 if WEB_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")

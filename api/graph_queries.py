@@ -1,8 +1,10 @@
-"""Memgraph query logic and topology transformations."""
+"""Memgraph query logic, LLM enrichment, and topology transformations."""
 
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 import os
 from collections import defaultdict
 
@@ -12,10 +14,14 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 BOLT_URI = os.getenv("MEMGRAPH_URI", "bolt://localhost:7687")
 BOLT_USER = os.getenv("MEMGRAPH_USER", "memgraph")
 BOLT_PASS = os.getenv("MEMGRAPH_PASS", "memgraph")
+
+# In-memory enrichment cache (persists across requests until server restart)
+_enrichment_cache: dict | None = None
 
 
 def _get_driver():
@@ -26,10 +32,7 @@ def _get_driver():
 
 
 def get_raw_graph() -> dict:
-    """Fetch all nodes and relationships from Memgraph.
-
-    Returns {nodes: [{id, label, properties}], links: [{source, target, type}]}
-    """
+    """Fetch all nodes and relationships from Memgraph."""
     driver = _get_driver()
     nodes_map: dict[str, dict] = {}
     links: list[dict] = []
@@ -65,9 +68,7 @@ def get_raw_graph() -> dict:
     # Also grab isolated nodes
     driver2 = _get_driver()
     with driver2.session() as session:
-        result = session.run(
-            "MATCH (n) WHERE NOT (n)--() RETURN n"
-        )
+        result = session.run("MATCH (n) WHERE NOT (n)--() RETURN n")
         for record in result:
             node = record["n"]
             nid = str(node.element_id)
@@ -84,30 +85,209 @@ def get_raw_graph() -> dict:
     return {"nodes": list(nodes_map.values()), "links": links}
 
 
+# ── LLM Batch Enrichment ─────────────────────────────────────────────────
+
+BATCH_SIZE = 20
+
+
+async def _batch_describe_nodes(client: OpenAI, nodes: list[dict], links: list[dict]) -> dict[int, str]:
+    """Generate descriptions for nodes in batches. Returns {node_index: description}."""
+    # Build neighbor context for each node
+    neighbors: dict[str, list[str]] = defaultdict(list)
+    node_map = {n["id"]: n["label"] for n in nodes}
+    for link in links:
+        src_label = node_map.get(link["source"], "?")
+        tgt_label = node_map.get(link["target"], "?")
+        rel = link.get("type", "relates_to").replace("_", " ")
+        neighbors[link["source"]].append(f"{rel} {tgt_label}")
+        neighbors[link["target"]].append(f"{src_label} {rel} this")
+
+    idx_to_desc: dict[int, str] = {}
+    batches = [nodes[i:i + BATCH_SIZE] for i in range(0, len(nodes), BATCH_SIZE)]
+
+    async def process_batch(batch: list[dict], batch_idx: int) -> None:
+        items = []
+        for i, n in enumerate(batch):
+            ctx = neighbors.get(n["id"], [])[:5]
+            ctx_str = "; ".join(ctx) if ctx else "isolated concept"
+            items.append({"idx": batch_idx * BATCH_SIZE + i, "name": n["label"], "context": ctx_str})
+
+        prompt = (
+            "You are analyzing a knowledge graph of someone's thoughts and memories.\n"
+            "For each concept below, write a 1-sentence description (10-20 words) of what this "
+            "concept likely represents in this person's thinking. Be introspective and human.\n"
+            "Use only ASCII characters in your response.\n\n"
+            "Return ONLY a JSON object with a 'results' array of objects with 'idx' (integer) and 'description' fields.\n"
+            f"You MUST return exactly {len(batch)} results, one for each concept.\n\n"
+            f"Concepts:\n{json.dumps(items, ensure_ascii=True)}"
+        )
+
+        try:
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2000,
+                temperature=0.6,
+                response_format={"type": "json_object"},
+            )
+            text = response.choices[0].message.content.strip()
+            parsed = json.loads(text)
+            results = parsed.get("results", parsed.get("items", parsed.get("concepts", [])))
+            if isinstance(results, list):
+                for item in results:
+                    if isinstance(item, dict) and "idx" in item and "description" in item:
+                        idx_to_desc[item["idx"]] = item["description"]
+        except Exception as e:
+            logger.warning("Batch node description failed: %s", e)
+
+    await asyncio.gather(*[process_batch(b, i) for i, b in enumerate(batches)])
+    return idx_to_desc
+
+
+async def _batch_label_edges(client: OpenAI, links: list[dict], node_map: dict[str, str]) -> dict[int, str]:
+    """Generate descriptive labels for edges in batches. Returns {link_index: label}."""
+    idx_to_label: dict[int, str] = {}
+    batches = [links[i:i + BATCH_SIZE] for i in range(0, len(links), BATCH_SIZE)]
+
+    async def process_batch(batch: list[dict], batch_idx: int) -> None:
+        items = []
+        for i, link in enumerate(batch):
+            src = node_map.get(link["source"], "?")
+            tgt = node_map.get(link["target"], "?")
+            rel = link.get("type", "relates_to").replace("_", " ")
+            items.append({"idx": batch_idx * BATCH_SIZE + i, "source": src, "target": tgt, "relationship": rel})
+
+        prompt = (
+            "You are analyzing connections in someone's knowledge graph, a map of their thoughts.\n"
+            "For each connection below, write a short phrase (3-7 words) that describes HOW these "
+            "two ideas connect in this person's mind. Be descriptive and human, not mechanical.\n"
+            "Use only ASCII characters in your response.\n\n"
+            "Return ONLY a JSON object with a 'results' array of objects with 'idx' (integer) and 'label' fields.\n\n"
+            f"Connections:\n{json.dumps(items, ensure_ascii=True)}"
+        )
+
+        try:
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2000,
+                temperature=0.7,
+                response_format={"type": "json_object"},
+            )
+            text = response.choices[0].message.content.strip()
+            parsed = json.loads(text)
+            results = parsed.get("results", parsed.get("items", parsed.get("connections", [])))
+            if isinstance(results, list):
+                for item in results:
+                    if isinstance(item, dict) and "idx" in item and "label" in item:
+                        idx_to_label[item["idx"]] = item["label"]
+        except Exception as e:
+            logger.warning("Batch edge labeling failed: %s", e)
+
+    await asyncio.gather(*[process_batch(b, i) for i, b in enumerate(batches)])
+    return idx_to_label
+
+
+async def enrich_graph(graph: dict) -> dict:
+    """Add LLM-generated descriptions to nodes and labels to edges.
+
+    Results are cached in memory so subsequent topology switches are instant.
+    """
+    global _enrichment_cache
+
+    if _enrichment_cache is not None:
+        # Apply cached enrichments to current graph
+        node_descs = _enrichment_cache["node_descriptions"]
+        edge_labels = _enrichment_cache["edge_labels"]
+
+        for node in graph["nodes"]:
+            node["description"] = node_descs.get(node["id"], "")
+
+        for link in graph["links"]:
+            key = f"{link['source']}|{link['target']}"
+            link["label"] = edge_labels.get(key, link.get("type", "").replace("_", " "))
+
+        return graph
+
+    logger.info("Enriching graph with LLM descriptions (first load)...")
+    client = OpenAI()
+    node_map = {n["id"]: n["label"] for n in graph["nodes"]}
+
+    # Run node descriptions and edge labels in parallel
+    idx_node_descs, idx_edge_labels = await asyncio.gather(
+        _batch_describe_nodes(client, graph["nodes"], graph["links"]),
+        _batch_label_edges(client, graph["links"], node_map),
+    )
+
+    # Convert index-based results to id/key-based for stable caching
+    node_descs: dict[str, str] = {}
+    for i, node in enumerate(graph["nodes"]):
+        node_descs[node["id"]] = idx_node_descs.get(i, "")
+
+    edge_labels: dict[str, str] = {}
+    for i, link in enumerate(graph["links"]):
+        key = f"{link['source']}|{link['target']}"
+        edge_labels[key] = idx_edge_labels.get(i, link.get("type", "").replace("_", " "))
+
+    # Cache for future requests
+    _enrichment_cache = {
+        "node_descriptions": node_descs,
+        "edge_labels": edge_labels,
+    }
+
+    # Apply to graph
+    for node in graph["nodes"]:
+        node["description"] = node_descs.get(node["id"], "")
+
+    for link in graph["links"]:
+        key = f"{link['source']}|{link['target']}"
+        link["label"] = edge_labels.get(key, link.get("type", "").replace("_", " "))
+
+    logger.info("Enrichment complete: %d nodes, %d edges", len(node_descs), len(edge_labels))
+    return graph
+
+
+# ── Memory search (Qdrant via mem0) ──────────────────────────────────────
+
+
+def get_node_memories(node_label: str, user_id: str = "augusto") -> list[dict]:
+    """Search Qdrant for memories related to a node concept."""
+    from memory.client import mem
+
+    try:
+        results = mem.search(node_label, user_id=user_id, limit=3)
+        memories = []
+        raw = results.get("results", []) if isinstance(results, dict) else results if isinstance(results, list) else []
+        for r in raw:
+            text = r.get("memory", "") if isinstance(r, dict) else str(r)
+            if text:
+                memories.append({"text": text})
+        return memories
+    except Exception as e:
+        logger.warning("Memory search failed for '%s': %s", node_label, e)
+        return []
+
+
 # ── Topology: Centralized ────────────────────────────────────────────────
 
 
 def to_centralized(graph: dict) -> dict:
-    """Restructure around the highest-degree node as the single core.
-
-    All nodes connect to the core; original edges kept but core is flagged.
-    """
+    """Restructure around the highest-degree node as the single core."""
     nodes = graph["nodes"]
     links = graph["links"]
 
     if not nodes:
         return {"nodes": [], "links": []}
 
-    # Count degree per node
     degree: dict[str, int] = defaultdict(int)
     for link in links:
         degree[link["source"]] += 1
         degree[link["target"]] += 1
 
-    # Find hub (highest degree)
     core_id = max(degree, key=degree.get) if degree else nodes[0]["id"]
 
-    # Mark nodes
     out_nodes = []
     for n in nodes:
         out_nodes.append({
@@ -116,7 +296,6 @@ def to_centralized(graph: dict) -> dict:
             "group": 0,
         })
 
-    # Keep original links + add core→node links for any unconnected nodes
     connected_to_core = {core_id}
     for link in links:
         if link["source"] == core_id:
@@ -131,6 +310,7 @@ def to_centralized(graph: dict) -> dict:
                 "source": core_id,
                 "target": n["id"],
                 "type": "centralized_link",
+                "label": "connected through core",
             })
 
     return {"nodes": out_nodes, "links": out_links, "coreId": core_id}
@@ -147,13 +327,11 @@ def to_decentralized(graph: dict) -> dict:
     if not nodes:
         return {"nodes": [], "links": []}
 
-    # Build adjacency for connected components
     adj: dict[str, set[str]] = defaultdict(set)
     for link in links:
         adj[link["source"]].add(link["target"])
         adj[link["target"]].add(link["source"])
 
-    # BFS to find connected components
     visited: set[str] = set()
     components: list[list[str]] = []
     node_ids = {n["id"] for n in nodes}
@@ -174,11 +352,9 @@ def to_decentralized(graph: dict) -> dict:
                     queue.append(neighbor)
         components.append(component)
 
-    # Assign group IDs
     node_group: dict[str, int] = {}
     hub_nodes: list[str] = []
     for group_id, component in enumerate(components):
-        # Find hub of each component (highest local degree)
         local_degree: dict[str, int] = defaultdict(int)
         for link in links:
             if link["source"] in component and link["target"] in component:
@@ -204,54 +380,3 @@ def to_decentralized(graph: dict) -> dict:
         "links": links,
         "clusters": len(components),
     }
-
-
-# ── Topology: Distributed ────────────────────────────────────────────────
-
-
-async def to_distributed(graph: dict) -> dict:
-    """Add LLM-generated edge labels describing how ideas connect."""
-    nodes = graph["nodes"]
-    links = graph["links"]
-
-    if not links:
-        return {"nodes": [{"group": 0, **n} for n in nodes], "links": []}
-
-    # Build node lookup
-    node_map = {n["id"]: n for n in nodes}
-
-    client = OpenAI()
-
-    async def label_edge(link: dict) -> dict:
-        src = node_map.get(link["source"], {})
-        tgt = node_map.get(link["target"], {})
-        src_label = src.get("label", link["source"])
-        tgt_label = tgt.get("label", link["target"])
-        rel_type = link.get("type", "relates_to")
-
-        prompt = (
-            f"In 3-5 words, describe how '{src_label}' connects to '{tgt_label}' "
-            f"given their relationship type is '{rel_type}'. "
-            f"Be poetic and concise. Return only the label, nothing else."
-        )
-
-        try:
-            response = await asyncio.to_thread(
-                client.chat.completions.create,
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=20,
-                temperature=0.7,
-            )
-            label = response.choices[0].message.content.strip()
-        except Exception:
-            label = rel_type.replace("_", " ")
-
-        return {**link, "label": label}
-
-    # Label all edges concurrently
-    labeled_links = await asyncio.gather(*[label_edge(l) for l in links])
-
-    out_nodes = [{"group": 0, **n} for n in nodes]
-
-    return {"nodes": out_nodes, "links": list(labeled_links)}

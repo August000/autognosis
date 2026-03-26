@@ -58,7 +58,7 @@
     .topo-btn {
       background: transparent;
       border: none;
-      color: #6666880;
+      color: #666688;
       font-size: 12px;
       font-weight: 500;
       letter-spacing: 0.5px;
@@ -86,8 +86,10 @@
       bottom: 24px;
       left: 28px;
       z-index: 100;
-      max-width: 320px;
-      background: rgba(15, 15, 22, 0.9);
+      max-width: 380px;
+      max-height: 70vh;
+      overflow-y: auto;
+      background: rgba(15, 15, 22, 0.92);
       border: 1px solid rgba(120, 120, 180, 0.12);
       border-radius: 12px;
       padding: 20px;
@@ -108,26 +110,37 @@
       font-size: 16px;
       font-weight: 600;
       color: #c8c8ff;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+    }
+
+    #info-description {
+      font-size: 13px;
+      color: #aaaacc;
+      line-height: 1.5;
+      margin-bottom: 12px;
+      font-style: italic;
     }
 
     #info-panel .connections {
       font-size: 12px;
       color: #7777aa;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     #info-panel ul {
       list-style: none;
-      max-height: 200px;
+      max-height: 180px;
       overflow-y: auto;
     }
 
     #info-panel li {
       font-size: 12px;
       color: #9999bb;
-      padding: 3px 0;
+      padding: 5px 0;
       border-bottom: 1px solid rgba(120, 120, 180, 0.06);
+      line-height: 1.4;
     }
 
     #info-panel li:last-child { border-bottom: none; }
@@ -135,6 +148,44 @@
     .edge-label {
       color: #aaaadd;
       font-weight: 500;
+    }
+
+    .neighbor-name {
+      color: #ccccee;
+    }
+
+    /* ── Memories section ─────────────────────────────── */
+    #memories-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(120, 120, 180, 0.1);
+    }
+
+    #memories-section .section-title {
+      font-size: 11px;
+      color: #7777aa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .memory-item {
+      font-size: 12px;
+      color: #9999bb;
+      line-height: 1.5;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      background: rgba(100, 100, 160, 0.06);
+      border-left: 2px solid rgba(120, 120, 200, 0.3);
+      border-radius: 0 6px 6px 0;
+    }
+
+    .memory-item:last-child { margin-bottom: 0; }
+
+    .memories-loading {
+      font-size: 11px;
+      color: #555577;
+      font-style: italic;
     }
 
     /* ── Stats ────────────────────────────────────────── */
@@ -154,8 +205,10 @@
       position: fixed;
       inset: 0;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 16px;
       background: #0a0a0f;
       z-index: 200;
       transition: opacity 0.5s ease;
@@ -175,6 +228,12 @@
       animation: spin 0.8s linear infinite;
     }
 
+    #loading-text {
+      font-size: 12px;
+      color: #555577;
+      letter-spacing: 1px;
+    }
+
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Description tooltip ─────────────────────────── */
@@ -185,7 +244,7 @@
       transform: translateX(-50%);
       z-index: 100;
       font-size: 12px;
-      color: #6666880;
+      color: #666688;
       text-align: center;
       opacity: 0;
       transition: opacity 0.4s ease;
@@ -201,11 +260,29 @@
       width: 100vw;
       height: 100vh;
     }
+
+    /* ── Scrollbar styling ───────────────────────────── */
+    #info-panel::-webkit-scrollbar,
+    #info-panel ul::-webkit-scrollbar {
+      width: 4px;
+    }
+    #info-panel::-webkit-scrollbar-track,
+    #info-panel ul::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #info-panel::-webkit-scrollbar-thumb,
+    #info-panel ul::-webkit-scrollbar-thumb {
+      background: rgba(120, 120, 180, 0.2);
+      border-radius: 2px;
+    }
   </style>
 </head>
 <body>
 
-  <div id="loading"><div class="loader"></div></div>
+  <div id="loading">
+    <div class="loader"></div>
+    <div id="loading-text">mapping thoughts…</div>
+  </div>
 
   <div id="header">
     <div class="logo">Solace <span>// shapes of thought</span></div>
@@ -221,15 +298,20 @@
 
   <div id="info-panel">
     <h3 id="info-title"></h3>
+    <div id="info-description"></div>
     <div class="connections" id="info-connections"></div>
     <ul id="info-list"></ul>
+    <div id="memories-section" style="display: none;">
+      <div class="section-title">original thoughts</div>
+      <div id="memories-content"></div>
+    </div>
   </div>
 
   <div id="stats"></div>
 
   <div id="graph-container"></div>
 
-  <!-- Three.js + 3D Force Graph (served locally) -->
+  <!-- Three.js + 3D Force Graph -->
   <script src="/static/three.min.js"></script>
   <script src="/static/three-spritetext.min.js"></script>
   <script src="/static/3d-force-graph.min.js"></script>
@@ -237,10 +319,10 @@
   <script>
 
     const DESCRIPTIONS = {
-      raw: 'Full graph — all entities and relationships as stored',
+      raw: 'Full graph — every concept and connection, enriched with meaning',
       centralized: 'One core idea connecting all others — hub and spoke',
       decentralized: 'Ideas cluster into themed hubs — communities of thought',
-      distributed: 'Every edge labeled by LLM — how ideas connect, in words',
+      distributed: 'Equal mesh — every edge labeled with how ideas connect',
     };
 
     const CLUSTER_COLORS = [
@@ -260,7 +342,16 @@
     const Graph = ForceGraph3D()(document.getElementById('graph-container'))
       .backgroundColor('#0a0a0f')
       .showNavInfo(false)
-      .nodeLabel('')
+      .nodeLabel(node => {
+        // Hover tooltip shows description
+        if (node.description) {
+          return `<div style="background:rgba(15,15,22,0.95);padding:8px 12px;border-radius:8px;border:1px solid rgba(120,120,180,0.2);max-width:250px;font-size:12px;line-height:1.4;color:#ccccee;">
+            <div style="font-weight:600;color:#c8c8ff;margin-bottom:4px;">${node.label}</div>
+            <div style="color:#9999bb;font-style:italic;">${node.description}</div>
+          </div>`;
+        }
+        return node.label || '';
+      })
       .nodeColor(node => {
         if (highlightNodes.has(node.id)) return '#ffffff';
         if (node.isCore) return '#FFD700';
@@ -277,15 +368,14 @@
       .nodeOpacity(0.9)
       .linkColor(link => {
         if (highlightLinks.has(link)) return 'rgba(200, 200, 255, 0.8)';
-        return 'rgba(100, 100, 160, 0.4)';
+        return 'rgba(100, 100, 160, 0.35)';
       })
-      .linkWidth(link => highlightLinks.has(link) ? 1.5 : 0.5)
+      .linkWidth(link => highlightLinks.has(link) ? 1.5 : 0.4)
       .linkDirectionalParticles(link => highlightLinks.has(link) ? 2 : 0)
       .linkDirectionalParticleWidth(1.5)
       .linkDirectionalParticleColor(() => '#b8b8ff')
       .nodeThreeObjectExtend(true)
       .nodeThreeObject(node => {
-        // Add text sprite label
         const sprite = new SpriteText(node.label || '');
         sprite.color = node.isCore ? '#FFD700' :
                        node.isHub ? '#FF6B8A' :
@@ -294,6 +384,28 @@
         sprite.position.y = node.isCore ? 10 : 6;
         sprite.fontWeight = node.isCore ? 'bold' : 'normal';
         return sprite;
+      })
+      // Always show edge labels
+      .linkThreeObjectExtend(true)
+      .linkThreeObject(link => {
+        const text = link.label || link.type || '';
+        if (!text) return null;
+        const sprite = new SpriteText(text);
+        sprite.color = highlightLinks.has(link)
+          ? 'rgba(200, 200, 240, 0.9)'
+          : 'rgba(140, 140, 190, 0.45)';
+        sprite.textHeight = 1.2;
+        sprite.fontWeight = '400';
+        return sprite;
+      })
+      .linkPositionUpdate((sprite, { start, end }) => {
+        if (!sprite) return;
+        const mid = {
+          x: (start.x + end.x) / 2,
+          y: (start.y + end.y) / 2,
+          z: (start.z + end.z) / 2,
+        };
+        Object.assign(sprite.position, mid);
       })
       .onNodeClick(node => {
         selectedNode = node;
@@ -312,7 +424,7 @@
               const tgtNode = currentGraph.nodes.find(n => n.id === tgtId);
               neighbors.push({
                 label: tgtNode ? tgtNode.label : tgtId,
-                edgeType: link.label || link.type || '',
+                edgeLabel: link.label || link.type || '',
                 direction: 'out',
               });
             }
@@ -322,19 +434,21 @@
               const srcNode = currentGraph.nodes.find(n => n.id === srcId);
               neighbors.push({
                 label: srcNode ? srcNode.label : srcId,
-                edgeType: link.label || link.type || '',
+                edgeLabel: link.label || link.type || '',
                 direction: 'in',
               });
             }
           });
 
           showInfoPanel(node, neighbors);
+          fetchMemories(node);
         }
 
         Graph.nodeColor(Graph.nodeColor())
              .linkColor(Graph.linkColor())
              .linkWidth(Graph.linkWidth())
-             .linkDirectionalParticles(Graph.linkDirectionalParticles());
+             .linkDirectionalParticles(Graph.linkDirectionalParticles())
+             .linkThreeObject(Graph.linkThreeObject());
       })
       .onBackgroundClick(() => {
         highlightNodes.clear();
@@ -344,46 +458,20 @@
         Graph.nodeColor(Graph.nodeColor())
              .linkColor(Graph.linkColor())
              .linkWidth(Graph.linkWidth())
-             .linkDirectionalParticles(Graph.linkDirectionalParticles());
+             .linkDirectionalParticles(Graph.linkDirectionalParticles())
+             .linkThreeObject(Graph.linkThreeObject());
       });
-
-    // ── Edge labels for distributed mode ────────────────
-
-    function updateLinkLabels() {
-      if (currentTopology === 'distributed') {
-        Graph
-          .linkThreeObjectExtend(true)
-          .linkThreeObject(link => {
-            const text = link.label || link.type || '';
-            if (!text) return null;
-            const sprite = new SpriteText(text);
-            sprite.color = 'rgba(170, 170, 220, 0.6)';
-            sprite.textHeight = 1.5;
-            sprite.fontWeight = '400';
-            return sprite;
-          })
-          .linkPositionUpdate((sprite, { start, end }) => {
-            if (!sprite) return;
-            const mid = {
-              x: (start.x + end.x) / 2,
-              y: (start.y + end.y) / 2,
-              z: (start.z + end.z) / 2,
-            };
-            Object.assign(sprite.position, mid);
-          });
-      } else {
-        Graph
-          .linkThreeObject(() => null)
-          .linkPositionUpdate(null);
-      }
-    }
 
     // ── Fetch and render ────────────────────────────────
 
     async function loadGraph(topology) {
       currentTopology = topology;
       const loading = document.getElementById('loading');
+      const loadingText = document.getElementById('loading-text');
       loading.classList.remove('hidden');
+      loadingText.textContent = topology === 'raw' || !currentGraph
+        ? 'enriching thoughts with meaning…'
+        : 'reshaping topology…';
 
       try {
         const resp = await fetch(`/api/graph?topology=${topology}`);
@@ -394,9 +482,9 @@
         if (topology === 'centralized' && data.coreId) {
           Graph.d3Force('center', null);
           Graph.d3Force('charge').strength(-120);
+          Graph.d3Force('cluster', null);
         } else if (topology === 'decentralized') {
           Graph.d3Force('charge').strength(-80);
-          // Cluster force: nodes in same group attract
           Graph.d3Force('cluster', alpha => {
             const nodes = Graph.graphData().nodes;
             const centroids = {};
@@ -434,7 +522,6 @@
         }
 
         Graph.graphData(data);
-        updateLinkLabels();
         updateStats(data);
 
         // Reset highlight
@@ -455,6 +542,16 @@
     function showInfoPanel(node, neighbors) {
       const panel = document.getElementById('info-panel');
       document.getElementById('info-title').textContent = node.label || node.id;
+
+      // Show description
+      const descEl = document.getElementById('info-description');
+      if (node.description) {
+        descEl.textContent = node.description;
+        descEl.style.display = 'block';
+      } else {
+        descEl.style.display = 'none';
+      }
+
       document.getElementById('info-connections').textContent =
         `${neighbors.length} connection${neighbors.length !== 1 ? 's' : ''}`;
 
@@ -462,17 +559,49 @@
       list.innerHTML = '';
       neighbors.forEach(n => {
         const li = document.createElement('li');
-        const arrow = n.direction === 'out' ? '\u2192' : '\u2190';
-        const edgeText = n.edgeType ? `<span class="edge-label">${n.edgeType}</span> ` : '';
-        li.innerHTML = `${arrow} ${edgeText}${n.label}`;
+        const arrow = n.direction === 'out' ? '→' : '←';
+        li.innerHTML = `${arrow} <span class="edge-label">${n.edgeLabel}</span> <span class="neighbor-name">${n.label}</span>`;
         list.appendChild(li);
       });
+
+      // Reset memories
+      document.getElementById('memories-section').style.display = 'none';
+      document.getElementById('memories-content').innerHTML = '';
 
       panel.classList.add('visible');
     }
 
     function hideInfoPanel() {
       document.getElementById('info-panel').classList.remove('visible');
+    }
+
+    // ── Fetch memories for a node ───────────────────────
+
+    async function fetchMemories(node) {
+      const section = document.getElementById('memories-section');
+      const content = document.getElementById('memories-content');
+
+      section.style.display = 'block';
+      content.innerHTML = '<div class="memories-loading">searching memories…</div>';
+
+      try {
+        const resp = await fetch(`/api/node/${encodeURIComponent(node.id)}/memories?label=${encodeURIComponent(node.label || '')}`);
+        const data = await resp.json();
+
+        if (data.memories && data.memories.length > 0) {
+          content.innerHTML = '';
+          data.memories.forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'memory-item';
+            div.textContent = m.text;
+            content.appendChild(div);
+          });
+        } else {
+          content.innerHTML = '<div class="memories-loading">no memories found for this concept</div>';
+        }
+      } catch (err) {
+        content.innerHTML = '<div class="memories-loading">could not load memories</div>';
+      }
     }
 
     // ── Stats ────────────────────────────────────────────
@@ -493,7 +622,6 @@
         btn.classList.add('active');
         const topology = btn.dataset.topology;
 
-        // Show description briefly
         const desc = document.getElementById('topo-desc');
         desc.textContent = DESCRIPTIONS[topology] || '';
         desc.classList.add('visible');
