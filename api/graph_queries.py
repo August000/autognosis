@@ -190,35 +190,125 @@ async def _batch_label_edges(client: OpenAI, links: list[dict], node_map: dict[s
     return idx_to_label
 
 
+def _compute_clusters(nodes: list[dict], links: list[dict]) -> tuple[dict[str, int], list[list[str]]]:
+    """Compute connected components. Returns (node_id -> group_id, list of components)."""
+    adj: dict[str, set[str]] = defaultdict(set)
+    for link in links:
+        adj[link["source"]].add(link["target"])
+        adj[link["target"]].add(link["source"])
+
+    visited: set[str] = set()
+    components: list[list[str]] = []
+    node_ids = {n["id"] for n in nodes}
+
+    for nid in node_ids:
+        if nid in visited:
+            continue
+        component: list[str] = []
+        queue = [nid]
+        while queue:
+            current = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+            component.append(current)
+            for neighbor in adj.get(current, []):
+                if neighbor not in visited:
+                    queue.append(neighbor)
+        components.append(component)
+
+    # Sort components by size descending so biggest cluster is group 0
+    components.sort(key=len, reverse=True)
+
+    node_group: dict[str, int] = {}
+    for group_id, component in enumerate(components):
+        for nid in component:
+            node_group[nid] = group_id
+
+    return node_group, components
+
+
+async def _name_clusters(client: OpenAI, components: list[list[str]], node_map: dict[str, str]) -> dict[int, str]:
+    """Use LLM to generate a short topic name for each cluster."""
+    cluster_names: dict[int, str] = {}
+
+    # Only name clusters with 2+ nodes
+    items = []
+    for i, comp in enumerate(components):
+        labels = [node_map.get(nid, "?") for nid in comp[:15]]
+        if len(comp) < 2:
+            cluster_names[i] = labels[0] if labels else ""
+            continue
+        items.append({"idx": i, "concepts": labels})
+
+    if not items:
+        return cluster_names
+
+    prompt = (
+        "You are analyzing clusters of concepts in someone's knowledge graph.\n"
+        "For each cluster below, write a 1-3 word topic name that captures the theme.\n"
+        "Be concise and descriptive. Use only ASCII characters.\n\n"
+        "Return ONLY a JSON object with a 'results' array of objects with 'idx' (integer) and 'name' fields.\n\n"
+        f"Clusters:\n{json.dumps(items, ensure_ascii=True)}"
+    )
+
+    try:
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,
+            temperature=0.5,
+            response_format={"type": "json_object"},
+        )
+        text = response.choices[0].message.content.strip()
+        parsed = json.loads(text)
+        results = parsed.get("results", [])
+        for item in results:
+            if isinstance(item, dict) and "idx" in item and "name" in item:
+                cluster_names[item["idx"]] = item["name"]
+    except Exception as e:
+        logger.warning("Cluster naming failed: %s", e)
+
+    return cluster_names
+
+
 async def enrich_graph(graph: dict) -> dict:
-    """Add LLM-generated descriptions to nodes and labels to edges.
+    """Add LLM-generated descriptions, labels, clusters, and cluster names.
 
     Results are cached in memory so subsequent topology switches are instant.
     """
     global _enrichment_cache
 
     if _enrichment_cache is not None:
-        # Apply cached enrichments to current graph
         node_descs = _enrichment_cache["node_descriptions"]
         edge_labels = _enrichment_cache["edge_labels"]
+        node_groups = _enrichment_cache["node_groups"]
+        cluster_names = _enrichment_cache["cluster_names"]
 
         for node in graph["nodes"]:
             node["description"] = node_descs.get(node["id"], "")
+            node["group"] = node_groups.get(node["id"], 0)
 
         for link in graph["links"]:
             key = f"{link['source']}|{link['target']}"
             link["label"] = edge_labels.get(key, link.get("type", "").replace("_", " "))
 
+        graph["clusterNames"] = cluster_names
         return graph
 
     logger.info("Enriching graph with LLM descriptions (first load)...")
     client = OpenAI()
     node_map = {n["id"]: n["label"] for n in graph["nodes"]}
 
-    # Run node descriptions and edge labels in parallel
-    idx_node_descs, idx_edge_labels = await asyncio.gather(
+    # Compute clusters
+    node_groups, components = _compute_clusters(graph["nodes"], graph["links"])
+
+    # Run node descriptions, edge labels, and cluster naming in parallel
+    idx_node_descs, idx_edge_labels, cluster_names = await asyncio.gather(
         _batch_describe_nodes(client, graph["nodes"], graph["links"]),
         _batch_label_edges(client, graph["links"], node_map),
+        _name_clusters(client, components, node_map),
     )
 
     # Convert index-based results to id/key-based for stable caching
@@ -231,21 +321,25 @@ async def enrich_graph(graph: dict) -> dict:
         key = f"{link['source']}|{link['target']}"
         edge_labels[key] = idx_edge_labels.get(i, link.get("type", "").replace("_", " "))
 
-    # Cache for future requests
     _enrichment_cache = {
         "node_descriptions": node_descs,
         "edge_labels": edge_labels,
+        "node_groups": node_groups,
+        "cluster_names": cluster_names,
     }
 
-    # Apply to graph
     for node in graph["nodes"]:
         node["description"] = node_descs.get(node["id"], "")
+        node["group"] = node_groups.get(node["id"], 0)
 
     for link in graph["links"]:
         key = f"{link['source']}|{link['target']}"
         link["label"] = edge_labels.get(key, link.get("type", "").replace("_", " "))
 
-    logger.info("Enrichment complete: %d nodes, %d edges", len(node_descs), len(edge_labels))
+    graph["clusterNames"] = cluster_names
+
+    logger.info("Enrichment complete: %d nodes, %d edges, %d clusters",
+                len(node_descs), len(edge_labels), len(cluster_names))
     return graph
 
 
@@ -466,63 +560,33 @@ def to_centralized(graph: dict) -> dict:
 
 
 def to_decentralized(graph: dict) -> dict:
-    """Cluster nodes into themed hubs using connected components."""
+    """Cluster nodes into themed hubs. Groups already assigned by enrich_graph."""
     nodes = graph["nodes"]
     links = graph["links"]
 
     if not nodes:
         return {"nodes": [], "links": []}
 
-    adj: dict[str, set[str]] = defaultdict(set)
-    for link in links:
-        adj[link["source"]].add(link["target"])
-        adj[link["target"]].add(link["source"])
-
-    visited: set[str] = set()
-    components: list[list[str]] = []
-    node_ids = {n["id"] for n in nodes}
-
-    for nid in node_ids:
-        if nid in visited:
-            continue
-        component: list[str] = []
-        queue = [nid]
-        while queue:
-            current = queue.pop(0)
-            if current in visited:
-                continue
-            visited.add(current)
-            component.append(current)
-            for neighbor in adj.get(current, []):
-                if neighbor not in visited:
-                    queue.append(neighbor)
-        components.append(component)
-
-    node_group: dict[str, int] = {}
-    hub_nodes: list[str] = []
-    for group_id, component in enumerate(components):
-        local_degree: dict[str, int] = defaultdict(int)
-        for link in links:
-            if link["source"] in component and link["target"] in component:
-                local_degree[link["source"]] += 1
-                local_degree[link["target"]] += 1
-
-        hub_id = max(component, key=lambda x: local_degree.get(x, 0))
-        hub_nodes.append(hub_id)
-
-        for nid in component:
-            node_group[nid] = group_id
-
-    out_nodes = []
+    # Groups already assigned by enrich_graph; find hub of each group
+    groups: dict[int, list[dict]] = defaultdict(list)
     for n in nodes:
-        out_nodes.append({
-            **n,
-            "group": node_group.get(n["id"], 0),
-            "isHub": n["id"] in hub_nodes,
-        })
+        groups[n.get("group", 0)].append(n)
+
+    hub_nodes: set[str] = set()
+    degree: dict[str, int] = defaultdict(int)
+    for link in links:
+        degree[link["source"]] += 1
+        degree[link["target"]] += 1
+
+    for group_id, members in groups.items():
+        hub = max(members, key=lambda n: degree.get(n["id"], 0))
+        hub_nodes.add(hub["id"])
+
+    out_nodes = [{**n, "isHub": n["id"] in hub_nodes} for n in nodes]
 
     return {
         "nodes": out_nodes,
         "links": links,
-        "clusters": len(components),
+        "clusters": len(groups),
+        "clusterNames": graph.get("clusterNames", {}),
     }

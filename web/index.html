@@ -5,12 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Solace — Shapes of Thought</title>
   <style>
+    @font-face {
+      font-family: 'Gellix';
+      src: url('/static/fonts/Gellix-Light.woff2') format('woff2');
+      font-weight: 300;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Gellix';
+      src: url('/static/fonts/Gellix-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Gellix';
+      src: url('/static/fonts/Gellix-Medium.woff2') format('woff2');
+      font-weight: 500;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Gellix';
+      src: url('/static/fonts/Gellix-Bold.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: #0a0a0f;
-      color: #e0e0e8;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #050507;
+      color: #e8e8e8;
+      font-family: 'Gellix', -apple-system, BlinkMacSystemFont, sans-serif;
       overflow: hidden;
       height: 100vh;
     }
@@ -18,30 +43,26 @@
     /* ── Header ──────────────────────────────────────── */
     #header {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
+      top: 0; left: 0; right: 0;
       z-index: 100;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 14px 24px;
-      background: linear-gradient(180deg, rgba(10,10,15,0.95) 0%, rgba(10,10,15,0) 100%);
+      background: linear-gradient(180deg, rgba(5,5,7,0.95) 0%, rgba(5,5,7,0) 100%);
       pointer-events: none;
     }
-
     #header > * { pointer-events: auto; }
 
     .logo {
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 500;
       letter-spacing: 3px;
       text-transform: uppercase;
-      color: #8888aa;
+      color: #666;
       white-space: nowrap;
     }
-
-    .logo span { color: #b8b8ff; }
+    .logo span { color: #999; }
 
     .header-center {
       display: flex;
@@ -50,95 +71,75 @@
     }
 
     /* ── Search bar ──────────────────────────────────── */
-    .search-wrapper {
-      position: relative;
-    }
+    .search-wrapper { position: relative; }
 
     #search-input {
       width: 260px;
       padding: 8px 14px 8px 32px;
-      background: rgba(20, 20, 30, 0.8);
-      border: 1px solid rgba(120, 120, 180, 0.15);
+      background: rgba(20, 20, 22, 0.85);
+      border: 1px solid rgba(255,255,255,0.08);
       border-radius: 8px;
-      color: #ccccee;
+      color: #ddd;
       font-size: 12px;
-      font-family: inherit;
+      font-family: 'Gellix', sans-serif;
       outline: none;
       backdrop-filter: blur(12px);
       transition: border-color 0.2s, width 0.3s;
     }
-
     #search-input:focus {
-      border-color: rgba(120, 120, 200, 0.4);
+      border-color: rgba(255,255,255,0.2);
       width: 320px;
     }
-
-    #search-input::placeholder { color: #555577; }
+    #search-input::placeholder { color: #555; }
 
     .search-icon {
       position: absolute;
-      left: 10px;
-      top: 50%;
+      left: 10px; top: 50%;
       transform: translateY(-50%);
-      color: #555577;
-      font-size: 12px;
+      color: #555;
+      font-size: 13px;
       pointer-events: none;
     }
 
     #search-results {
       position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
+      top: 100%; left: 0; right: 0;
       margin-top: 4px;
-      background: rgba(15, 15, 22, 0.95);
-      border: 1px solid rgba(120, 120, 180, 0.15);
+      background: rgba(12, 12, 14, 0.95);
+      border: 1px solid rgba(255,255,255,0.08);
       border-radius: 8px;
       max-height: 240px;
       overflow-y: auto;
       display: none;
       backdrop-filter: blur(12px);
     }
-
     #search-results.visible { display: block; }
 
     .search-result-item {
       padding: 10px 14px;
       cursor: pointer;
-      border-bottom: 1px solid rgba(120, 120, 180, 0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
       transition: background 0.15s;
     }
-
-    .search-result-item:hover { background: rgba(100, 100, 200, 0.1); }
+    .search-result-item:hover { background: rgba(255,255,255,0.05); }
     .search-result-item:last-child { border-bottom: none; }
-
-    .search-result-item .sr-label {
-      font-size: 13px;
-      color: #ccccee;
-      font-weight: 500;
-    }
-
-    .search-result-item .sr-desc {
-      font-size: 11px;
-      color: #777799;
-      margin-top: 2px;
-    }
+    .search-result-item .sr-label { font-size: 13px; color: #ddd; font-weight: 500; }
+    .search-result-item .sr-desc { font-size: 11px; color: #777; margin-top: 2px; }
 
     /* ── Topology selector ───────────────────────────── */
     .topology-bar {
       display: flex;
       gap: 4px;
-      background: rgba(20, 20, 30, 0.8);
-      border: 1px solid rgba(120, 120, 180, 0.15);
+      background: rgba(20, 20, 22, 0.85);
+      border: 1px solid rgba(255,255,255,0.08);
       border-radius: 10px;
       padding: 4px;
       backdrop-filter: blur(12px);
     }
-
     .topo-btn {
       background: transparent;
       border: none;
-      color: #666688;
+      color: #555;
       font-size: 12px;
       font-weight: 500;
       letter-spacing: 0.5px;
@@ -146,31 +147,24 @@
       border-radius: 7px;
       cursor: pointer;
       transition: all 0.25s ease;
-      font-family: inherit;
+      font-family: 'Gellix', sans-serif;
     }
-
-    .topo-btn:hover {
-      color: #b8b8ff;
-      background: rgba(120, 120, 200, 0.08);
-    }
-
+    .topo-btn:hover { color: #bbb; background: rgba(255,255,255,0.04); }
     .topo-btn.active {
-      color: #e0e0ff;
-      background: rgba(100, 100, 200, 0.2);
-      box-shadow: 0 0 12px rgba(120, 120, 255, 0.1);
+      color: #eee;
+      background: rgba(255,255,255,0.1);
     }
 
     /* ── Info panel ──────────────────────────────────── */
     #info-panel {
       position: fixed;
-      bottom: 24px;
-      left: 28px;
+      bottom: 24px; left: 28px;
       z-index: 100;
       width: 380px;
       max-height: 75vh;
       overflow-y: auto;
-      background: rgba(15, 15, 22, 0.92);
-      border: 1px solid rgba(120, 120, 180, 0.12);
+      background: rgba(10, 10, 12, 0.92);
+      border: 1px solid rgba(255,255,255,0.06);
       border-radius: 12px;
       padding: 20px;
       backdrop-filter: blur(12px);
@@ -179,280 +173,107 @@
       transition: all 0.3s ease;
       pointer-events: none;
     }
-
     #info-panel.visible {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
+      opacity: 1; transform: translateY(0); pointer-events: auto;
     }
-
     #info-panel h3 {
-      font-size: 16px;
-      font-weight: 600;
-      color: #c8c8ff;
-      margin-bottom: 6px;
+      font-size: 16px; font-weight: 600; color: #eee; margin-bottom: 6px;
     }
-
     #info-description {
-      font-size: 13px;
-      color: #aaaacc;
-      line-height: 1.5;
-      margin-bottom: 12px;
-      font-style: italic;
+      font-size: 13px; color: #999; line-height: 1.5;
+      margin-bottom: 12px; font-style: italic;
     }
 
-    /* ── Connections section (navigable) ──────────── */
     .section-header {
-      font-size: 11px;
-      color: #7777aa;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-size: 11px; color: #666;
+      text-transform: uppercase; letter-spacing: 0.5px;
       margin-bottom: 8px;
     }
-
     #info-panel ul { list-style: none; }
 
+    /* ── Navigable connection buttons ────────────── */
     .nav-link {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 10px;
-      margin-bottom: 3px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.15s;
-      border: none;
-      background: none;
-      width: 100%;
-      text-align: left;
-      font-family: inherit;
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; margin-bottom: 3px; border-radius: 6px;
+      cursor: pointer; transition: background 0.15s;
+      border: none; background: none; width: 100%; text-align: left;
+      font-family: 'Gellix', sans-serif;
     }
-
-    .nav-link:hover {
-      background: rgba(100, 100, 200, 0.1);
-    }
-
+    .nav-link:hover { background: rgba(255,255,255,0.05); }
     .nav-link .nav-arrow {
-      font-size: 14px;
-      color: #7777aa;
-      flex-shrink: 0;
-      width: 16px;
-      text-align: center;
+      font-size: 14px; color: #555; flex-shrink: 0; width: 16px; text-align: center;
     }
-
     .nav-link .nav-edge {
-      font-size: 11px;
-      color: #8888bb;
-      flex-shrink: 0;
-      max-width: 120px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-size: 11px; color: #777; flex-shrink: 0;
+      max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-
-    .nav-link .nav-name {
-      font-size: 12px;
-      color: #ccccee;
-      font-weight: 500;
-    }
-
+    .nav-link .nav-name { font-size: 12px; color: #ccc; font-weight: 500; }
     .nav-link .nav-goto {
-      margin-left: auto;
-      font-size: 10px;
-      color: #555577;
-      opacity: 0;
-      transition: opacity 0.15s;
+      margin-left: auto; font-size: 10px; color: #444;
+      opacity: 0; transition: opacity 0.15s;
     }
-
     .nav-link:hover .nav-goto { opacity: 1; }
 
-    /* ── Knowledge detail section ─────────────────── */
-    #detail-section {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(120, 120, 180, 0.1);
-    }
-
+    /* ── Knowledge detail ────────────────────────── */
+    #detail-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05); }
     #detail-content {
-      font-size: 12px;
-      color: #aaaacc;
-      line-height: 1.6;
+      font-size: 12px; color: #999; line-height: 1.6;
       padding: 10px 12px;
-      background: rgba(80, 80, 140, 0.06);
+      background: rgba(255,255,255,0.02);
       border-radius: 8px;
-      border: 1px solid rgba(120, 120, 180, 0.08);
+      border: 1px solid rgba(255,255,255,0.04);
     }
+    .detail-loading { font-size: 11px; color: #555; font-style: italic; }
 
-    .detail-loading {
-      font-size: 11px;
-      color: #555577;
-      font-style: italic;
-    }
-
-    /* ── Memories section ─────────────────────────── */
-    #memories-section {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(120, 120, 180, 0.1);
-    }
-
+    /* ── Memories ─────────────────────────────────── */
+    #memories-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05); }
     .memory-item {
-      font-size: 12px;
-      color: #9999bb;
-      line-height: 1.5;
-      padding: 8px 10px;
-      margin-bottom: 6px;
-      background: rgba(100, 100, 160, 0.06);
-      border-left: 2px solid rgba(120, 120, 200, 0.3);
+      font-size: 12px; color: #999; line-height: 1.5;
+      padding: 8px 10px; margin-bottom: 6px;
+      background: rgba(255,255,255,0.02);
+      border-left: 2px solid rgba(255,255,255,0.15);
       border-radius: 0 6px 6px 0;
     }
-
     .memory-item:last-child { margin-bottom: 0; }
-
-    .memories-loading {
-      font-size: 11px;
-      color: #555577;
-      font-style: italic;
-    }
-
-    /* ── Ghost node suggestions ───────────────────── */
-    #suggest-section {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(120, 120, 180, 0.1);
-    }
-
-    .ghost-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      padding: 8px 12px;
-      margin-bottom: 4px;
-      background: rgba(200, 100, 180, 0.06);
-      border: 1px dashed rgba(200, 100, 180, 0.25);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-      text-align: left;
-    }
-
-    .ghost-btn:hover {
-      background: rgba(200, 100, 180, 0.12);
-      border-color: rgba(200, 100, 180, 0.4);
-    }
-
-    .ghost-btn.materialized {
-      background: rgba(120, 100, 200, 0.12);
-      border: 1px solid rgba(120, 100, 200, 0.3);
-      border-style: solid;
-      cursor: default;
-    }
-
-    .ghost-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #e866b0;
-      flex-shrink: 0;
-      transition: background 0.3s;
-    }
-
-    .ghost-btn.materialized .ghost-dot {
-      background: #7B68EE;
-    }
-
-    .ghost-label {
-      font-size: 12px;
-      color: #cc88bb;
-      font-weight: 500;
-    }
-
-    .ghost-btn.materialized .ghost-label {
-      color: #b8b8ff;
-    }
-
-    .ghost-reason {
-      font-size: 10px;
-      color: #777799;
-      margin-top: 1px;
-    }
+    .memories-loading { font-size: 11px; color: #555; font-style: italic; }
 
     /* ── Stats ────────────────────────────────────── */
     #stats {
-      position: fixed;
-      bottom: 24px;
-      right: 28px;
-      z-index: 100;
-      font-size: 11px;
-      color: #44446a;
-      text-align: right;
-      line-height: 1.6;
+      position: fixed; bottom: 24px; right: 28px; z-index: 100;
+      font-size: 11px; color: #444; text-align: right; line-height: 1.6;
     }
 
     /* ── Loading ──────────────────────────────────── */
     #loading {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      background: #0a0a0f;
-      z-index: 200;
-      transition: opacity 0.5s ease;
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      background: #050507; z-index: 200; transition: opacity 0.5s ease;
     }
-
     #loading.hidden { opacity: 0; pointer-events: none; }
-
     .loader {
-      width: 40px;
-      height: 40px;
-      border: 2px solid rgba(120, 120, 200, 0.15);
-      border-top-color: #8888cc;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      width: 40px; height: 40px;
+      border: 2px solid rgba(255,255,255,0.06);
+      border-top-color: #888;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
     }
-
-    #loading-text {
-      font-size: 12px;
-      color: #555577;
-      letter-spacing: 1px;
-    }
-
+    #loading-text { font-size: 12px; color: #555; letter-spacing: 1px; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Topo description ────────────────────────── */
     .topo-desc {
-      position: fixed;
-      top: 64px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 100;
-      font-size: 12px;
-      color: #666688;
-      text-align: center;
-      opacity: 0;
-      transition: opacity 0.4s ease;
-      pointer-events: none;
+      position: fixed; top: 64px; left: 50%; transform: translateX(-50%);
+      z-index: 100; font-size: 12px; color: #555;
+      text-align: center; opacity: 0; transition: opacity 0.4s ease; pointer-events: none;
     }
-
     .topo-desc.visible { opacity: 1; }
 
-    /* ── Graph container ─────────────────────────── */
     #graph-container { width: 100vw; height: 100vh; }
 
     /* ── Scrollbar ────────────────────────────────── */
-    #info-panel::-webkit-scrollbar,
-    #search-results::-webkit-scrollbar { width: 4px; }
-    #info-panel::-webkit-scrollbar-track,
-    #search-results::-webkit-scrollbar-track { background: transparent; }
-    #info-panel::-webkit-scrollbar-thumb,
-    #search-results::-webkit-scrollbar-thumb {
-      background: rgba(120, 120, 180, 0.2);
-      border-radius: 2px;
+    #info-panel::-webkit-scrollbar, #search-results::-webkit-scrollbar { width: 4px; }
+    #info-panel::-webkit-scrollbar-track, #search-results::-webkit-scrollbar-track { background: transparent; }
+    #info-panel::-webkit-scrollbar-thumb, #search-results::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1); border-radius: 2px;
     }
   </style>
 </head>
@@ -495,23 +316,16 @@
       <div class="section-header">original thoughts</div>
       <div id="memories-content"></div>
     </div>
-    <div id="suggest-section" style="display: none;">
-      <div class="section-header">explore further</div>
-      <div id="suggest-content"></div>
-    </div>
   </div>
 
   <div id="stats"></div>
-
   <div id="graph-container"></div>
 
-  <!-- Three.js + 3D Force Graph -->
   <script src="/static/three.min.js"></script>
   <script src="/static/three-spritetext.min.js"></script>
   <script src="/static/3d-force-graph.min.js"></script>
 
   <script>
-
     const DESCRIPTIONS = {
       raw: 'Full graph -- every concept and connection, enriched with meaning',
       centralized: 'One core idea connecting all others -- hub and spoke',
@@ -519,10 +333,23 @@
       distributed: 'Equal mesh -- every edge labeled with how ideas connect',
     };
 
+    // Muted cluster palette -- distinct but not overpowering on dark bg
     const CLUSTER_COLORS = [
-      '#7B68EE', '#FF6B8A', '#4ECDC4', '#FFD93D', '#6BCB77',
-      '#9B59B6', '#E67E22', '#1ABC9C', '#E74C3C', '#3498DB',
-      '#F39C12', '#2ECC71', '#E91E63', '#00BCD4', '#FF5722',
+      '#8CB4D5', // steel blue
+      '#D4956A', // warm clay
+      '#7DB889', // sage
+      '#C47D7D', // dusty rose
+      '#B8A062', // amber
+      '#9B8EC4', // lavender
+      '#5DAFAF', // teal
+      '#CC8E6F', // terra cotta
+      '#82A6C4', // denim
+      '#A3C47D', // lime sage
+      '#CB85A4', // mauve
+      '#7DBDBD', // aqua
+      '#B0A36D', // olive
+      '#9595C4', // periwinkle
+      '#D49090', // salmon
     ];
 
     let currentGraph = null;
@@ -530,77 +357,79 @@
     let highlightNodes = new Set();
     let highlightLinks = new Set();
     let selectedNode = null;
-    let ghostNodes = new Set(); // track ghost node IDs
-
-    // ── Helper: get node color ────────────────────────
-    function getNodeColor(node) {
-      if (node._isGhost) return '#e866b0';
-      if (highlightNodes.has(node.id)) return '#ffffff';
-      if (node.isCore) return '#FFD700';
-      if (node.isHub) return '#FF6B8A';
-      return CLUSTER_COLORS[node.group % CLUSTER_COLORS.length];
-    }
+    let ghostNodeIds = new Set();
+    let clusterLabelObjects = [];
 
     // ── Initialize 3D Graph ──────────────────────────
     const Graph = ForceGraph3D()(document.getElementById('graph-container'))
-      .backgroundColor('#0a0a0f')
+      .backgroundColor('#050507')
       .showNavInfo(false)
       .nodeLabel(node => {
+        if (node._isGhost) return node.label + ' (click to explore)';
         if (node.description) {
-          return '<div style="background:rgba(15,15,22,0.95);padding:8px 12px;border-radius:8px;border:1px solid rgba(120,120,180,0.2);max-width:250px;font-size:12px;line-height:1.4;color:#ccccee;">'
-            + '<div style="font-weight:600;color:#c8c8ff;margin-bottom:4px;">' + node.label + '</div>'
-            + '<div style="color:#9999bb;font-style:italic;">' + node.description + '</div>'
-            + '</div>';
+          return '<div style="background:rgba(10,10,12,0.95);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);max-width:250px;font-size:12px;line-height:1.4;color:#ccc;font-family:Gellix,sans-serif">'
+            + '<div style="font-weight:600;color:#eee;margin-bottom:4px;">' + node.label + '</div>'
+            + '<div style="color:#888;font-style:italic;">' + node.description + '</div></div>';
         }
         return node.label || '';
       })
-      .nodeColor(getNodeColor)
+      .nodeColor(node => {
+        if (node._isGhost) return 'rgba(255,255,255,0.15)';
+        return '#ffffff';
+      })
       .nodeVal(node => {
-        // Small spheres: 1 for normal, slightly larger for special
-        if (node._isGhost) return 0.8;
-        if (node.isCore) return 3;
-        if (node.isHub) return 2;
-        if (highlightNodes.has(node.id)) return 1.5;
-        return 0.8;
+        if (node._isGhost) return 0.4;
+        if (node.isCore) return 2;
+        if (node.isHub) return 1.5;
+        if (highlightNodes.has(node.id)) return 1.2;
+        return 0.6;
       })
-      .nodeOpacity(node => node._isGhost ? 0.5 : 0.85)
-      .nodeRelSize(3)
+      .nodeOpacity(node => node._isGhost ? 0.3 : 0.9)
+      .nodeRelSize(2.5)
       .linkColor(link => {
-        if (highlightLinks.has(link)) return 'rgba(200, 200, 255, 0.8)';
-        return 'rgba(100, 100, 160, 0.3)';
+        if (link._isGhost) return 'rgba(255,255,255,0.06)';
+        if (highlightLinks.has(link)) return 'rgba(255,255,255,0.7)';
+        return 'rgba(255,255,255,0.12)';
       })
-      .linkWidth(link => highlightLinks.has(link) ? 1.5 : 0.3)
+      .linkWidth(link => {
+        if (link._isGhost) return 0.2;
+        return highlightLinks.has(link) ? 1.2 : 0.3;
+      })
       .linkDirectionalParticles(link => highlightLinks.has(link) ? 2 : 0)
-      .linkDirectionalParticleWidth(1.5)
-      .linkDirectionalParticleColor(() => '#b8b8ff')
+      .linkDirectionalParticleWidth(1.2)
+      .linkDirectionalParticleColor(() => '#ffffff')
       .nodeThreeObjectExtend(true)
       .nodeThreeObject(node => {
-        // Text label offset to the right of the small sphere
-        const sprite = new SpriteText(node.label || '');
-        sprite.color = node._isGhost ? 'rgba(232, 102, 176, 0.6)' :
-                       node.isCore ? '#FFD700' :
-                       node.isHub ? '#FF6B8A' :
-                       'rgba(200, 200, 230, 0.75)';
-        sprite.textHeight = node.isCore ? 3.5 : node.isHub ? 2.8 : 1.8;
-        // Position label to the right and slightly above the sphere
+        const label = node.label || '';
+        const sprite = new SpriteText(label);
+        sprite.fontFace = 'Gellix, sans-serif';
+
+        if (node._isGhost) {
+          sprite.color = 'rgba(255,255,255,0.25)';
+          sprite.textHeight = 1.5;
+        } else {
+          // Tint label with cluster color
+          const clusterColor = CLUSTER_COLORS[(node.group || 0) % CLUSTER_COLORS.length];
+          sprite.color = highlightNodes.has(node.id) ? '#ffffff' : clusterColor;
+          sprite.textHeight = node.isCore ? 3.2 : node.isHub ? 2.6 : 1.8;
+        }
+        // Position to the right of the white sphere
         sprite.position.set(
-          node.isCore ? 6 : node.isHub ? 5 : 3.5,
-          node.isCore ? 2 : 1,
+          node.isCore ? 5 : node.isHub ? 4 : 3,
+          0.5,
           0
         );
         sprite.fontWeight = node.isCore ? 'bold' : 'normal';
         return sprite;
       })
-      // Edge labels
       .linkThreeObjectExtend(true)
       .linkThreeObject(link => {
         const text = link.label || link.type || '';
-        if (!text) return null;
+        if (!text || link._isGhost) return null;
         const sprite = new SpriteText(text);
-        sprite.color = highlightLinks.has(link)
-          ? 'rgba(200, 200, 240, 0.9)'
-          : 'rgba(140, 140, 190, 0.35)';
-        sprite.textHeight = 1.0;
+        sprite.fontFace = 'Gellix, sans-serif';
+        sprite.color = highlightLinks.has(link) ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.15)';
+        sprite.textHeight = 0.9;
         sprite.fontWeight = '400';
         return sprite;
       })
@@ -614,6 +443,7 @@
       })
       .onNodeClick(onNodeClick)
       .onBackgroundClick(() => {
+        clearGhostNodes();
         highlightNodes.clear();
         highlightLinks.clear();
         selectedNode = null;
@@ -623,19 +453,28 @@
 
     function refreshVisuals() {
       Graph.nodeColor(Graph.nodeColor())
+           .nodeThreeObject(Graph.nodeThreeObject())
            .linkColor(Graph.linkColor())
            .linkWidth(Graph.linkWidth())
            .linkDirectionalParticles(Graph.linkDirectionalParticles())
            .linkThreeObject(Graph.linkThreeObject());
     }
 
-    // ── Node click handler ──────────────────────────
+    // ── Node click ──────────────────────────────────
     function onNodeClick(node) {
       if (!node) return;
+
+      // If clicking a ghost node, materialize it
+      if (node._isGhost) {
+        materializeGhostNode(node);
+        return;
+      }
+
       selectAndFocusNode(node, true);
     }
 
     function selectAndFocusNode(node, flyTo) {
+      clearGhostNodes();
       selectedNode = node;
       highlightNodes.clear();
       highlightLinks.clear();
@@ -645,46 +484,196 @@
       currentGraph.links.forEach(link => {
         const srcId = typeof link.source === 'object' ? link.source.id : link.source;
         const tgtId = typeof link.target === 'object' ? link.target.id : link.target;
-        if (srcId === node.id) {
+        if (srcId === node.id && !link._isGhost) {
           highlightNodes.add(tgtId);
           highlightLinks.add(link);
           const tgtNode = currentGraph.nodes.find(n => n.id === tgtId);
-          neighbors.push({
-            id: tgtId,
-            label: tgtNode ? tgtNode.label : tgtId,
-            edgeLabel: link.label || link.type || '',
-            direction: 'out',
-          });
+          neighbors.push({ id: tgtId, label: tgtNode ? tgtNode.label : tgtId, edgeLabel: link.label || link.type || '', direction: 'out' });
         }
-        if (tgtId === node.id) {
+        if (tgtId === node.id && !link._isGhost) {
           highlightNodes.add(srcId);
           highlightLinks.add(link);
           const srcNode = currentGraph.nodes.find(n => n.id === srcId);
-          neighbors.push({
-            id: srcId,
-            label: srcNode ? srcNode.label : srcId,
-            edgeLabel: link.label || link.type || '',
-            direction: 'in',
-          });
+          neighbors.push({ id: srcId, label: srcNode ? srcNode.label : srcId, edgeLabel: link.label || link.type || '', direction: 'in' });
         }
       });
 
       showInfoPanel(node, neighbors);
       fetchMemories(node);
       fetchDetail(node, neighbors);
-      fetchSuggestions(node, neighbors);
+      // Spawn ghost suggestions in 3D
+      spawnGhostSuggestions(node);
       refreshVisuals();
 
       if (flyTo) {
-        // Fly camera to node
         const distance = 120;
-        const distRatio = 1 + distance / Math.hypot(node.x || 0, node.y || 0, node.z || 0);
+        const dist = Math.hypot(node.x || 0, node.y || 0, node.z || 0) || 1;
+        const ratio = 1 + distance / dist;
         Graph.cameraPosition(
-          { x: (node.x || 0) * distRatio, y: (node.y || 0) * distRatio, z: (node.z || 0) * distRatio },
+          { x: (node.x || 0) * ratio, y: (node.y || 0) * ratio, z: (node.z || 0) * ratio },
           { x: node.x || 0, y: node.y || 0, z: node.z || 0 },
           1200
         );
       }
+    }
+
+    // ── Ghost nodes in 3D ───────────────────────────
+    function clearGhostNodes() {
+      if (ghostNodeIds.size === 0) return;
+      const gd = Graph.graphData();
+      gd.nodes = gd.nodes.filter(n => !n._isGhost);
+      gd.links = gd.links.filter(l => !l._isGhost);
+      currentGraph.nodes = currentGraph.nodes.filter(n => !n._isGhost);
+      currentGraph.links = currentGraph.links.filter(l => !l._isGhost);
+      ghostNodeIds.clear();
+      Graph.graphData(gd);
+    }
+
+    async function spawnGhostSuggestions(parentNode) {
+      // Only for nodes with fewer connections
+      const degree = currentGraph.links.filter(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        return (s === parentNode.id || t === parentNode.id) && !l._isGhost;
+      }).length;
+
+      if (degree > 6) return;
+
+      try {
+        const resp = await fetch(
+          '/api/node/' + encodeURIComponent(parentNode.id)
+          + '/suggest?label=' + encodeURIComponent(parentNode.label || '')
+        );
+        const data = await resp.json();
+
+        if (!data.suggestions || data.suggestions.length === 0) return;
+        if (selectedNode !== parentNode) return; // User moved on
+
+        const gd = Graph.graphData();
+        const angle_step = (2 * Math.PI) / data.suggestions.length;
+        const radius = 35;
+
+        data.suggestions.forEach((s, i) => {
+          const ghostId = '__ghost_' + Date.now() + '_' + i;
+          const angle = angle_step * i;
+          const ghostNode = {
+            id: ghostId,
+            label: s.label,
+            description: s.reason || '',
+            group: parentNode.group || 0,
+            _isGhost: true,
+            _parentId: parentNode.id,
+            _suggestion: s,
+            x: (parentNode.x || 0) + Math.cos(angle) * radius,
+            y: (parentNode.y || 0) + Math.sin(angle) * radius * 0.6,
+            z: (parentNode.z || 0) + Math.sin(angle + 1) * radius * 0.4,
+          };
+          const ghostLink = {
+            source: ghostId,
+            target: parentNode.id,
+            label: s.reason || '',
+            _isGhost: true,
+          };
+
+          gd.nodes.push(ghostNode);
+          gd.links.push(ghostLink);
+          currentGraph.nodes.push(ghostNode);
+          currentGraph.links.push(ghostLink);
+          ghostNodeIds.add(ghostId);
+        });
+
+        Graph.graphData(gd);
+      } catch (err) {
+        console.error('Ghost suggestions failed:', err);
+      }
+    }
+
+    async function materializeGhostNode(ghostNode) {
+      const parentId = ghostNode._parentId;
+      const suggestion = ghostNode._suggestion;
+      if (!parentId || !suggestion) return;
+
+      try {
+        const resp = await fetch(
+          '/api/node/' + encodeURIComponent(parentId)
+          + '/materialize?label=' + encodeURIComponent(suggestion.label)
+          + '&reason=' + encodeURIComponent(suggestion.reason || ''),
+          { method: 'POST' }
+        );
+        const data = await resp.json();
+
+        if (data.success && data.node) {
+          // Replace ghost with real node
+          ghostNode._isGhost = false;
+          ghostNode.id = data.node.id;
+          ghostNode.label = data.node.label;
+          ghostNode.description = data.node.description || suggestion.reason || '';
+          ghostNodeIds.delete(ghostNode.id);
+
+          // Update the link too
+          const gd = Graph.graphData();
+          gd.links.forEach(l => {
+            if (l._isGhost && (typeof l.source === 'object' ? l.source.id : l.source) === ghostNode.id) {
+              l._isGhost = false;
+              l.type = 'SUGGESTED_BY';
+            }
+          });
+
+          Graph.graphData(gd);
+          refreshVisuals();
+          updateStats(currentGraph);
+        }
+      } catch (err) {
+        console.error('Materialize failed:', err);
+      }
+    }
+
+    // ── Cluster labels in 3D ────────────────────────
+    function renderClusterLabels(data) {
+      // Remove old cluster labels
+      clusterLabelObjects.forEach(obj => Graph.scene().remove(obj));
+      clusterLabelObjects = [];
+
+      const clusterNames = data.clusterNames || {};
+      if (!clusterNames || Object.keys(clusterNames).length === 0) return;
+
+      // Wait for positions to settle
+      setTimeout(() => {
+        const nodes = Graph.graphData().nodes;
+        const groups = {};
+
+        nodes.forEach(n => {
+          if (n._isGhost) return;
+          const g = n.group || 0;
+          if (!groups[g]) groups[g] = { xs: [], ys: [], zs: [] };
+          groups[g].xs.push(n.x || 0);
+          groups[g].ys.push(n.y || 0);
+          groups[g].zs.push(n.z || 0);
+        });
+
+        Object.keys(groups).forEach(g => {
+          const name = clusterNames[g] || clusterNames[parseInt(g)];
+          if (!name) return;
+          const grp = groups[g];
+          if (grp.xs.length < 2) return;
+
+          const cx = grp.xs.reduce((a, b) => a + b, 0) / grp.xs.length;
+          const cy = grp.ys.reduce((a, b) => a + b, 0) / grp.ys.length;
+          const cz = grp.zs.reduce((a, b) => a + b, 0) / grp.zs.length;
+
+          const color = CLUSTER_COLORS[parseInt(g) % CLUSTER_COLORS.length];
+          const sprite = new SpriteText(name.toUpperCase());
+          sprite.fontFace = 'Gellix, sans-serif';
+          sprite.color = color;
+          sprite.textHeight = 8;
+          sprite.fontWeight = 'bold';
+          sprite.material.opacity = 0.12;
+          sprite.position.set(cx, cy + 30, cz);
+
+          Graph.scene().add(sprite);
+          clusterLabelObjects.push(sprite);
+        });
+      }, 3000);
     }
 
     // ── Search ──────────────────────────────────────
@@ -695,33 +684,17 @@
     searchInput.addEventListener('input', () => {
       clearTimeout(searchTimeout);
       const q = searchInput.value.trim();
-      if (!q) {
-        searchResults.classList.remove('visible');
-        return;
-      }
+      if (!q) { searchResults.classList.remove('visible'); return; }
       searchTimeout = setTimeout(() => doSearch(q), 200);
     });
-
     searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        searchInput.blur();
-        searchResults.classList.remove('visible');
-      }
+      if (e.key === 'Escape') { searchInput.blur(); searchResults.classList.remove('visible'); }
     });
-
-    // Close search when clicking outside
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.search-wrapper')) {
-        searchResults.classList.remove('visible');
-      }
+      if (!e.target.closest('.search-wrapper')) searchResults.classList.remove('visible');
     });
-
-    // Global keyboard shortcut: / to focus search
     document.addEventListener('keydown', (e) => {
-      if (e.key === '/' && document.activeElement !== searchInput) {
-        e.preventDefault();
-        searchInput.focus();
-      }
+      if (e.key === '/' && document.activeElement !== searchInput) { e.preventDefault(); searchInput.focus(); }
     });
 
     async function doSearch(q) {
@@ -733,13 +706,12 @@
           data.results.forEach(r => {
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            div.innerHTML = '<div class="sr-label">' + escapeHtml(r.label) + '</div>'
-              + (r.description ? '<div class="sr-desc">' + escapeHtml(r.description) + '</div>' : '');
+            div.innerHTML = '<div class="sr-label">' + esc(r.label) + '</div>'
+              + (r.description ? '<div class="sr-desc">' + esc(r.description) + '</div>' : '');
             div.addEventListener('click', () => {
               searchResults.classList.remove('visible');
               searchInput.value = r.label;
               searchInput.blur();
-              // Find the node in the rendered graph and fly to it
               const node = currentGraph.nodes.find(n => n.id === r.id);
               if (node) selectAndFocusNode(node, true);
             });
@@ -749,34 +721,25 @@
         } else {
           searchResults.classList.remove('visible');
         }
-      } catch (err) {
-        console.error('Search failed:', err);
-      }
+      } catch (err) { console.error('Search failed:', err); }
     }
 
-    function escapeHtml(s) {
-      const d = document.createElement('div');
-      d.textContent = s;
-      return d.innerHTML;
-    }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-    // ── Fetch and render ────────────────────────────
+    // ── Load graph ──────────────────────────────────
     async function loadGraph(topology) {
       currentTopology = topology;
       const loading = document.getElementById('loading');
       const loadingText = document.getElementById('loading-text');
       loading.classList.remove('hidden');
-      loadingText.textContent = topology === 'raw' || !currentGraph
-        ? 'enriching thoughts with meaning...'
-        : 'reshaping topology...';
+      loadingText.textContent = !currentGraph ? 'enriching thoughts with meaning...' : 'reshaping topology...';
 
       try {
         const resp = await fetch('/api/graph?topology=' + topology);
         const data = await resp.json();
         currentGraph = data;
-        ghostNodes.clear();
+        ghostNodeIds.clear();
 
-        // Configure forces per topology
         if (topology === 'centralized' && data.coreId) {
           Graph.d3Force('center', null);
           Graph.d3Force('charge').strength(-120);
@@ -785,26 +748,21 @@
           Graph.d3Force('charge').strength(-80);
           Graph.d3Force('cluster', alpha => {
             const nodes = Graph.graphData().nodes;
-            const centroids = {};
-            const counts = {};
+            const centroids = {}, counts = {};
             nodes.forEach(n => {
-              if (!centroids[n.group]) {
-                centroids[n.group] = { x: 0, y: 0, z: 0 };
-                counts[n.group] = 0;
-              }
-              centroids[n.group].x += n.x || 0;
-              centroids[n.group].y += n.y || 0;
-              centroids[n.group].z += n.z || 0;
-              counts[n.group]++;
+              if (n._isGhost) return;
+              const g = n.group || 0;
+              if (!centroids[g]) { centroids[g] = { x: 0, y: 0, z: 0 }; counts[g] = 0; }
+              centroids[g].x += n.x || 0; centroids[g].y += n.y || 0; centroids[g].z += n.z || 0;
+              counts[g]++;
             });
             Object.keys(centroids).forEach(g => {
-              centroids[g].x /= counts[g];
-              centroids[g].y /= counts[g];
-              centroids[g].z /= counts[g];
+              centroids[g].x /= counts[g]; centroids[g].y /= counts[g]; centroids[g].z /= counts[g];
             });
             const k = alpha * 0.3;
             nodes.forEach(n => {
-              const c = centroids[n.group];
+              if (n._isGhost) return;
+              const c = centroids[n.group || 0];
               if (!c) return;
               n.vx = (n.vx || 0) + (c.x - (n.x || 0)) * k;
               n.vy = (n.vy || 0) + (c.y - (n.y || 0)) * k;
@@ -821,6 +779,7 @@
 
         Graph.graphData(data);
         updateStats(data);
+        renderClusterLabels(data);
 
         highlightNodes.clear();
         highlightLinks.clear();
@@ -840,17 +799,12 @@
       document.getElementById('info-title').textContent = node.label || node.id;
 
       const descEl = document.getElementById('info-description');
-      if (node.description) {
-        descEl.textContent = node.description;
-        descEl.style.display = 'block';
-      } else {
-        descEl.style.display = 'none';
-      }
+      if (node.description) { descEl.textContent = node.description; descEl.style.display = 'block'; }
+      else { descEl.style.display = 'none'; }
 
       document.getElementById('info-connections').textContent =
         neighbors.length + ' connection' + (neighbors.length !== 1 ? 's' : '');
 
-      // Build navigable neighbor list
       const list = document.getElementById('info-list');
       list.innerHTML = '';
       neighbors.forEach(n => {
@@ -859,25 +813,21 @@
         btn.className = 'nav-link';
         btn.innerHTML =
           '<span class="nav-arrow">' + (n.direction === 'out' ? '&rarr;' : '&larr;') + '</span>'
-          + '<span class="nav-edge">' + escapeHtml(n.edgeLabel) + '</span>'
-          + '<span class="nav-name">' + escapeHtml(n.label) + '</span>'
+          + '<span class="nav-edge">' + esc(n.edgeLabel) + '</span>'
+          + '<span class="nav-name">' + esc(n.label) + '</span>'
           + '<span class="nav-goto">go &rarr;</span>';
         btn.addEventListener('click', () => {
-          // Navigate to this neighbor
-          const targetNode = currentGraph.nodes.find(nd => nd.id === n.id);
-          if (targetNode) selectAndFocusNode(targetNode, true);
+          const target = currentGraph.nodes.find(nd => nd.id === n.id);
+          if (target) selectAndFocusNode(target, true);
         });
         li.appendChild(btn);
         list.appendChild(li);
       });
 
-      // Reset sections
       document.getElementById('detail-section').style.display = 'none';
       document.getElementById('detail-content').innerHTML = '';
       document.getElementById('memories-section').style.display = 'none';
       document.getElementById('memories-content').innerHTML = '';
-      document.getElementById('suggest-section').style.display = 'none';
-      document.getElementById('suggest-content').innerHTML = '';
 
       panel.classList.add('visible');
     }
@@ -886,44 +836,30 @@
       document.getElementById('info-panel').classList.remove('visible');
     }
 
-    // ── Fetch first-principles detail ───────────────
+    // ── Detail + Memories ───────────────────────────
     async function fetchDetail(node, neighbors) {
       const section = document.getElementById('detail-section');
       const content = document.getElementById('detail-content');
-
       section.style.display = 'block';
       content.innerHTML = '<div class="detail-loading">thinking from first principles...</div>';
-
       try {
-        const neighborLabels = neighbors.map(n => n.label).join(',');
-        const resp = await fetch(
-          '/api/node/' + encodeURIComponent(node.id)
-          + '/detail?label=' + encodeURIComponent(node.label || '')
-          + '&neighbors=' + encodeURIComponent(neighborLabels)
-        );
+        const nl = neighbors.map(n => n.label).join(',');
+        const resp = await fetch('/api/node/' + encodeURIComponent(node.id)
+          + '/detail?label=' + encodeURIComponent(node.label || '') + '&neighbors=' + encodeURIComponent(nl));
         const data = await resp.json();
-        if (data.detail) {
-          content.textContent = data.detail;
-        } else {
-          section.style.display = 'none';
-        }
-      } catch (err) {
-        section.style.display = 'none';
-      }
+        if (data.detail) content.textContent = data.detail;
+        else section.style.display = 'none';
+      } catch (err) { section.style.display = 'none'; }
     }
 
-    // ── Fetch memories for a node ───────────────────
     async function fetchMemories(node) {
       const section = document.getElementById('memories-section');
       const content = document.getElementById('memories-content');
-
       section.style.display = 'block';
       content.innerHTML = '<div class="memories-loading">searching memories...</div>';
-
       try {
         const resp = await fetch('/api/node/' + encodeURIComponent(node.id) + '/memories?label=' + encodeURIComponent(node.label || ''));
         const data = await resp.json();
-
         if (data.memories && data.memories.length > 0) {
           content.innerHTML = '';
           data.memories.forEach(m => {
@@ -933,115 +869,20 @@
             content.appendChild(div);
           });
         } else {
-          content.innerHTML = '<div class="memories-loading">no memories found for this concept</div>';
+          content.innerHTML = '<div class="memories-loading">no memories found</div>';
         }
       } catch (err) {
         content.innerHTML = '<div class="memories-loading">could not load memories</div>';
       }
     }
 
-    // ── Fetch suggestions for leaf nodes ────────────
-    async function fetchSuggestions(node, neighbors) {
-      // Only suggest for leaf nodes (0-2 connections) or always show
-      const section = document.getElementById('suggest-section');
-      const content = document.getElementById('suggest-content');
-
-      if (neighbors.length > 5) {
-        section.style.display = 'none';
-        return;
-      }
-
-      section.style.display = 'block';
-      content.innerHTML = '<div class="memories-loading">finding related concepts...</div>';
-
-      try {
-        const resp = await fetch(
-          '/api/node/' + encodeURIComponent(node.id)
-          + '/suggest?label=' + encodeURIComponent(node.label || '')
-        );
-        const data = await resp.json();
-
-        if (data.suggestions && data.suggestions.length > 0) {
-          content.innerHTML = '';
-          data.suggestions.forEach(s => {
-            const btn = document.createElement('button');
-            btn.className = 'ghost-btn';
-            btn.innerHTML =
-              '<div class="ghost-dot"></div>'
-              + '<div>'
-              + '<div class="ghost-label">' + escapeHtml(s.label) + '</div>'
-              + '<div class="ghost-reason">' + escapeHtml(s.reason || '') + '</div>'
-              + '</div>';
-            btn.addEventListener('click', () => materializeGhost(btn, s, node));
-            content.appendChild(btn);
-          });
-        } else {
-          section.style.display = 'none';
-        }
-      } catch (err) {
-        section.style.display = 'none';
-      }
-    }
-
-    // ── Materialize ghost node ──────────────────────
-    async function materializeGhost(btnEl, suggestion, parentNode) {
-      if (btnEl.classList.contains('materialized')) return;
-      btnEl.classList.add('materialized');
-
-      try {
-        const resp = await fetch(
-          '/api/node/' + encodeURIComponent(parentNode.id)
-          + '/materialize?label=' + encodeURIComponent(suggestion.label)
-          + '&reason=' + encodeURIComponent(suggestion.reason || ''),
-          { method: 'POST' }
-        );
-        const data = await resp.json();
-
-        if (data.success && data.node) {
-          // Add the new node + link to the live graph
-          const gd = Graph.graphData();
-          const newNode = {
-            ...data.node,
-            group: parentNode.group || 0,
-            x: (parentNode.x || 0) + (Math.random() - 0.5) * 40,
-            y: (parentNode.y || 0) + (Math.random() - 0.5) * 40,
-            z: (parentNode.z || 0) + (Math.random() - 0.5) * 40,
-          };
-
-          gd.nodes.push(newNode);
-          gd.links.push({
-            source: data.node.id,
-            target: parentNode.id,
-            type: 'SUGGESTED_BY',
-            label: suggestion.reason || 'explore further',
-          });
-
-          // Also update currentGraph
-          currentGraph.nodes.push(newNode);
-          currentGraph.links.push({
-            source: data.node.id,
-            target: parentNode.id,
-            type: 'SUGGESTED_BY',
-            label: suggestion.reason || 'explore further',
-          });
-
-          Graph.graphData(gd);
-          updateStats(currentGraph);
-        }
-      } catch (err) {
-        console.error('Materialize failed:', err);
-        btnEl.classList.remove('materialized');
-      }
-    }
-
     // ── Stats ───────────────────────────────────────
     function updateStats(data) {
       const stats = document.getElementById('stats');
-      const nodeCount = data.nodes ? data.nodes.length : 0;
-      const linkCount = data.links ? data.links.length : 0;
-      const clusterInfo = data.clusters ? data.clusters + ' clusters' : '';
-      stats.innerHTML = nodeCount + ' nodes &middot; ' + linkCount + ' edges'
-        + (clusterInfo ? ' &middot; ' + clusterInfo : '');
+      const nc = data.nodes ? data.nodes.length : 0;
+      const lc = data.links ? data.links.length : 0;
+      const cl = data.clusters ? data.clusters + ' clusters' : '';
+      stats.innerHTML = nc + ' nodes &middot; ' + lc + ' edges' + (cl ? ' &middot; ' + cl : '');
     }
 
     // ── Topology buttons ────────────────────────────
@@ -1050,12 +891,10 @@
         document.querySelectorAll('.topo-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const topology = btn.dataset.topology;
-
         const desc = document.getElementById('topo-desc');
         desc.textContent = DESCRIPTIONS[topology] || '';
         desc.classList.add('visible');
         setTimeout(() => desc.classList.remove('visible'), 3000);
-
         loadGraph(topology);
       });
     });
