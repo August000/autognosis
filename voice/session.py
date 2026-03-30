@@ -273,15 +273,28 @@ class VoiceSession:
         except Exception as e:
             logger.warning("Failed to refresh instructions: %s", e)
 
+    @staticmethod
+    def _sanitize_for_cypher(text: str) -> str:
+        """Strip characters that break mem0's Cypher query generation in Memgraph."""
+        import re
+        # Remove characters known to break unparameterised Cypher strings:
+        #   /  \  '  "  `  { }  and control chars
+        text = re.sub(r"[/\\'\"`{}]", " ", text)
+        # Collapse multiple spaces
+        text = re.sub(r"\s{2,}", " ", text).strip()
+        return text
+
     async def _store_memory(self, user_text: str, assistant_text: str) -> None:
         if not user_text:
             return
         try:
+            safe_user = self._sanitize_for_cypher(user_text)
+            safe_asst = self._sanitize_for_cypher(assistant_text)
             result = await asyncio.to_thread(
                 mem.add,
                 [
-                    {"role": "user", "content": user_text},
-                    {"role": "assistant", "content": assistant_text},
+                    {"role": "user", "content": safe_user},
+                    {"role": "assistant", "content": safe_asst},
                 ],
                 user_id=self.user_id,
             )

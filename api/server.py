@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from enum import Enum
 from pathlib import Path
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -22,7 +23,19 @@ from api.graph_queries import (
     to_decentralized,
 )
 
-app = FastAPI(title="Solace Graph Visualizer")
+from db import create_pool, close_pool, init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    pool = await create_pool()
+    await init_db(pool)
+    app.state.pool = pool
+    yield
+    await close_pool()
+
+
+app = FastAPI(title="Solace Graph Visualizer", lifespan=lifespan)
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -43,11 +56,12 @@ async def index():
 
 
 @app.get("/api/graph")
-async def graph(topology: Topology = Query(default=Topology.raw)):
+async def graph(request: Request, topology: Topology = Query(default=Topology.raw)):
     """Return enriched graph data shaped for the requested topology."""
     global _latest_graph
+    pool = request.app.state.pool
     raw = get_raw_graph()
-    enriched = await enrich_graph(raw)
+    enriched = await enrich_graph(raw, pool=pool)
     _latest_graph = enriched
 
     if topology == Topology.centralized:
@@ -88,33 +102,40 @@ async def node_memories(node_id: str, label: str = ""):
 
 
 @app.get("/api/node/{node_id}/suggest")
-async def node_suggest(node_id: str, label: str = ""):
+async def node_suggest(request: Request, node_id: str, label: str = ""):
     """Suggest related concepts for a leaf node using first principles."""
     if not label or not _latest_graph:
         return {"suggestions": []}
+    pool = request.app.state.pool
     existing = [n.get("label", "") for n in _latest_graph.get("nodes", [])]
-    suggestions = await suggest_related(label, existing)
+    suggestions = await suggest_related(label, existing, pool=pool)
     return {"suggestions": suggestions}
 
 
 @app.get("/api/node/{node_id}/detail")
-async def node_detail(node_id: str, label: str = "", neighbors: str = ""):
+async def node_detail(request: Request, node_id: str, label: str = "", neighbors: str = ""):
     """Get first-principles knowledge panel for a concept."""
     if not label:
         return {"detail": ""}
+    pool = request.app.state.pool
     neighbor_list = [n.strip() for n in neighbors.split(",") if n.strip()] if neighbors else []
-    detail = await get_concept_detail(label, neighbor_list)
+    detail = await get_concept_detail(label, neighbor_list, pool=pool)
     return {"detail": detail}
 
 
 @app.post("/api/node/{parent_id}/materialize")
-async def materialize(parent_id: str, label: str = Query(...), reason: str = Query(default="")):
+async def materialize(request: Request, parent_id: str, label: str = Query(...), reason: str = Query(default="")):
     """Materialize a ghost node into Memgraph, connected to parent."""
-    result = await asyncio.to_thread(materialize_ghost_node, label, parent_id, reason)
+    pool = request.app.state.pool
+    result = await materialize_ghost_node(label, parent_id, reason, pool=pool)
     if result:
         return {"node": result, "success": True}
     return {"node": None, "success": False}
 
+
+# Include chat router
+from chat.router import router as chat_router
+app.include_router(chat_router)
 
 # Serve static assets
 if WEB_DIR.exists():

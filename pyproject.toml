@@ -17,4 +17,5 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.34.0",
     "neo4j>=5.0.0",
+    "asyncpg>=0.29.0",
 ]

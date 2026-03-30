@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 REALTIME_URL = "wss://api.openai.com/v1/realtime?model=gpt-realtime"
 
 DEFAULT_INSTRUCTIONS = """\
-    You are Johnatan a viking and a helpful ai assistant and friend of augusto
+You are 
 """
 
 

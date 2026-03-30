@@ -20,9 +20,6 @@ BOLT_URI = os.getenv("MEMGRAPH_URI", "bolt://localhost:7687")
 BOLT_USER = os.getenv("MEMGRAPH_USER", "memgraph")
 BOLT_PASS = os.getenv("MEMGRAPH_PASS", "memgraph")
 
-# In-memory enrichment cache (persists across requests until server restart)
-_enrichment_cache: dict | None = None
-
 
 def _get_driver():
     return GraphDatabase.driver(BOLT_URI, auth=(BOLT_USER, BOLT_PASS))
@@ -273,29 +270,32 @@ async def _name_clusters(client: OpenAI, components: list[list[str]], node_map: 
     return cluster_names
 
 
-async def enrich_graph(graph: dict) -> dict:
+async def enrich_graph(graph: dict, pool=None) -> dict:
     """Add LLM-generated descriptions, labels, clusters, and cluster names.
 
-    Results are cached in memory so subsequent topology switches are instant.
+    Results are cached in Postgres (if pool provided) so enrichments persist across restarts.
     """
-    global _enrichment_cache
+    # Try loading from Postgres cache
+    if pool:
+        from db.cache import get_enrichment_cache
+        cached = await get_enrichment_cache(pool)
+        if cached is not None:
+            node_descs = cached["node_descriptions"]
+            edge_labels = cached["edge_labels"]
+            node_groups = cached["node_groups"]
+            cluster_names = cached["cluster_names"]
 
-    if _enrichment_cache is not None:
-        node_descs = _enrichment_cache["node_descriptions"]
-        edge_labels = _enrichment_cache["edge_labels"]
-        node_groups = _enrichment_cache["node_groups"]
-        cluster_names = _enrichment_cache["cluster_names"]
+            for node in graph["nodes"]:
+                node["description"] = node_descs.get(node["id"], "")
+                node["group"] = node_groups.get(node["id"], 0)
 
-        for node in graph["nodes"]:
-            node["description"] = node_descs.get(node["id"], "")
-            node["group"] = node_groups.get(node["id"], 0)
+            for link in graph["links"]:
+                key = f"{link['source']}|{link['target']}"
+                link["label"] = edge_labels.get(key, link.get("type", "").replace("_", " "))
 
-        for link in graph["links"]:
-            key = f"{link['source']}|{link['target']}"
-            link["label"] = edge_labels.get(key, link.get("type", "").replace("_", " "))
-
-        graph["clusterNames"] = cluster_names
-        return graph
+            graph["clusterNames"] = cluster_names
+            logger.info("Loaded enrichment from Postgres cache")
+            return graph
 
     logger.info("Enriching graph with LLM descriptions (first load)...")
     client = OpenAI()
@@ -321,12 +321,18 @@ async def enrich_graph(graph: dict) -> dict:
         key = f"{link['source']}|{link['target']}"
         edge_labels[key] = idx_edge_labels.get(i, link.get("type", "").replace("_", " "))
 
-    _enrichment_cache = {
+    cache_data = {
         "node_descriptions": node_descs,
         "edge_labels": edge_labels,
         "node_groups": node_groups,
         "cluster_names": cluster_names,
     }
+
+    # Persist to Postgres
+    if pool:
+        from db.cache import set_enrichment_cache
+        await set_enrichment_cache(pool, cache_data)
+        logger.info("Saved enrichment to Postgres cache")
 
     for node in graph["nodes"]:
         node["description"] = node_descs.get(node["id"], "")
@@ -398,11 +404,15 @@ def search_nodes(query: str, graph: dict) -> list[dict]:
 # ── Suggest related concepts for leaf nodes ──────────────────────────────
 
 
-async def suggest_related(node_label: str, existing_labels: list[str]) -> list[dict]:
-    """Use LLM to suggest concepts related to a leaf node using first principles.
+async def suggest_related(node_label: str, existing_labels: list[str], pool=None) -> list[dict]:
+    """Use LLM to suggest concepts related to a leaf node using first principles."""
+    # Check Postgres cache
+    if pool:
+        from db.cache import get_api_cache
+        cached = await get_api_cache(pool, "node_suggest", node_label)
+        if cached is not None:
+            return cached.get("suggestions", [])
 
-    Returns a list of {label, reason} suggestions that don't already exist.
-    """
     existing_set = {l.lower() for l in existing_labels}
 
     client = OpenAI()
@@ -432,11 +442,17 @@ async def suggest_related(node_label: str, existing_labels: list[str]) -> list[d
         text = response.choices[0].message.content.strip()
         parsed = json.loads(text)
         results = parsed.get("suggestions", [])
-        # Filter out any that already exist
-        return [
+        suggestions = [
             s for s in results
             if isinstance(s, dict) and s.get("label", "").lower() not in existing_set
         ][:5]
+
+        # Cache in Postgres
+        if pool and suggestions:
+            from db.cache import set_api_cache
+            await set_api_cache(pool, "node_suggest", node_label, {"suggestions": suggestions}, ttl_hours=24)
+
+        return suggestions
     except Exception as e:
         logger.warning("Suggest related failed for '%s': %s", node_label, e)
         return []
@@ -445,11 +461,15 @@ async def suggest_related(node_label: str, existing_labels: list[str]) -> list[d
 # ── Detailed knowledge panel ─────────────────────────────────────────────
 
 
-async def get_concept_detail(node_label: str, neighbors: list[str]) -> str:
-    """Generate a first-principles knowledge panel for a concrete concept.
+async def get_concept_detail(node_label: str, neighbors: list[str], pool=None) -> str:
+    """Generate a first-principles knowledge panel for a concrete concept."""
+    # Check Postgres cache
+    if pool:
+        from db.cache import get_api_cache
+        cached = await get_api_cache(pool, "node_detail", node_label)
+        if cached is not None:
+            return cached.get("detail", "")
 
-    Returns a detailed text explanation (50-100 words) grounded in fundamentals.
-    """
     client = OpenAI()
     prompt = (
         f"The concept is: '{node_label}'\n"
@@ -472,7 +492,14 @@ async def get_concept_detail(node_label: str, neighbors: list[str]) -> str:
             max_tokens=300,
             temperature=0.5,
         )
-        return response.choices[0].message.content.strip()
+        detail = response.choices[0].message.content.strip()
+
+        # Cache in Postgres
+        if pool and detail:
+            from db.cache import set_api_cache
+            await set_api_cache(pool, "node_detail", node_label, {"detail": detail}, ttl_hours=24)
+
+        return detail
     except Exception as e:
         logger.warning("Concept detail failed for '%s': %s", node_label, e)
         return ""
@@ -481,32 +508,42 @@ async def get_concept_detail(node_label: str, neighbors: list[str]) -> str:
 # ── Materialize ghost node into Memgraph ─────────────────────────────────
 
 
-def materialize_ghost_node(label: str, parent_id: str, reason: str) -> dict:
+async def materialize_ghost_node(label: str, parent_id: str, reason: str, pool=None) -> dict:
     """Create a new node in Memgraph and connect it to the parent node."""
-    driver = _get_driver()
-    new_node = None
 
-    with driver.session() as session:
-        # Create node and relationship
-        result = session.run(
-            "MATCH (parent) WHERE elementId(parent) = $parent_id "
-            "CREATE (n {name: $label})-[r:SUGGESTED_BY]->(parent) "
-            "RETURN n, r",
-            parent_id=parent_id,
-            label=label,
-        )
-        record = result.single()
-        if record:
-            node = record["n"]
-            nid = str(node.element_id)
-            new_node = {
-                "id": nid,
-                "label": label,
-                "properties": dict(node),
-                "description": reason,
-            }
+    def _create():
+        driver = _get_driver()
+        new_node = None
 
-    driver.close()
+        with driver.session() as session:
+            result = session.run(
+                "MATCH (parent) WHERE id(parent) = toInteger($parent_id) "
+                "CREATE (n {name: $label})-[r:SUGGESTED_BY]->(parent) "
+                "RETURN n, r",
+                parent_id=parent_id,
+                label=label,
+            )
+            record = result.single()
+            if record:
+                node = record["n"]
+                nid = str(node.element_id)
+                new_node = {
+                    "id": nid,
+                    "label": label,
+                    "properties": dict(node),
+                    "description": reason,
+                }
+
+        driver.close()
+        return new_node
+
+    new_node = await asyncio.to_thread(_create)
+
+    # Invalidate enrichment cache so the new node gets descriptions & clustering
+    if new_node and pool:
+        from db.cache import invalidate_enrichment_cache
+        await invalidate_enrichment_cache(pool)
+
     return new_node
 
 
