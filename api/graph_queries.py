@@ -461,48 +461,51 @@ async def suggest_related(node_label: str, existing_labels: list[str], pool=None
 # ── Detailed knowledge panel ─────────────────────────────────────────────
 
 
-async def get_concept_detail(node_label: str, neighbors: list[str], pool=None) -> str:
-    """Generate a first-principles knowledge panel for a concrete concept."""
+async def get_concept_detail(node_label: str, neighbors: list[str], pool=None) -> dict:
+    """Fetch a Wikipedia article for a concept. Returns summary + full article."""
     # Check Postgres cache
     if pool:
         from db.cache import get_api_cache
         cached = await get_api_cache(pool, "node_detail", node_label)
         if cached is not None:
-            return cached.get("detail", "")
+            return cached
 
-    client = OpenAI()
-    prompt = (
-        f"The concept is: '{node_label}'\n"
-        f"It connects to these ideas in someone's mind: {json.dumps(neighbors[:10])}\n\n"
-        "Write a concise first-principles explanation (50-100 words) of this concept. "
-        "Break it down to its fundamentals:\n"
-        "- What is this at its core?\n"
-        "- Why does it matter or exist?\n"
-        "- If it involves history, math, science, or definitions, include the essential facts.\n"
-        "- Connect it back to the person's related concepts where relevant.\n\n"
-        "Be precise, informative, and avoid filler. Write as if explaining to a curious, intelligent person. "
-        "Use only ASCII characters."
-    )
+    import wikipediaapi
+
+    def _fetch():
+        wiki = wikipediaapi.Wikipedia(
+            user_agent="Solace/1.0 (Knowledge Graph Visualizer)",
+            language="en",
+        )
+        page = wiki.page(node_label)
+        if not page.exists():
+            return None
+
+        title = page.title
+        summary = page.summary
+        full_article = page.text
+
+        return {
+            "summary": summary,
+            "full_article": full_article,
+            "title": title,
+            "url": page.fullurl,
+        }
 
     try:
-        response = await asyncio.to_thread(
-            client.chat.completions.create,
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-            temperature=0.5,
-        )
-        detail = response.choices[0].message.content.strip()
+        result = await asyncio.to_thread(_fetch)
+        if not result:
+            return {"summary": "", "full_article": "", "title": node_label, "url": ""}
 
         # Cache in Postgres
-        if pool and detail:
+        if pool:
             from db.cache import set_api_cache
-            await set_api_cache(pool, "node_detail", node_label, {"detail": detail}, ttl_hours=24)
+            await set_api_cache(pool, "node_detail", node_label, result, ttl_hours=72)
 
-        return detail
+        return result
     except Exception as e:
-        logger.warning("Concept detail failed for '%s': %s", node_label, e)
-        return ""
+        logger.warning("Wikipedia fetch failed for '%s': %s", node_label, e)
+        return {"summary": "", "full_article": "", "title": node_label, "url": ""}
 
 
 # ── Materialize ghost node into Memgraph ─────────────────────────────────

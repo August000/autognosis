@@ -1500,6 +1500,7 @@ dependencies = [
     { name = "sounddevice" },
     { name = "uvicorn" },
     { name = "websockets" },
+    { name = "wikipedia-api" },
 ]
 
 [package.metadata]
@@ -1517,6 +1518,7 @@ requires-dist = [
     { name = "sounddevice", specifier = ">=0.5.0" },
     { name = "uvicorn", specifier = ">=0.34.0" },
     { name = "websockets", specifier = ">=13.0" },
+    { name = "wikipedia-api", specifier = ">=0.8.1" },
 ]
 
 [[package]]
@@ -1732,6 +1734,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c2/b6/b9afed2afadddaf5ebb2afa801abf4b0868f42f8539bfe4b071b5266c9fe/websockets-16.0-cp314-cp314t-win32.whl", hash = "sha256:5a4b4cc550cb665dd8a47f868c8d04c8230f857363ad3c9caf7a0c3bf8c61ca6", size = 178085, upload-time = "2026-01-10T09:23:33.816Z" },
     { url = "https://files.pythonhosted.org/packages/9f/3e/28135a24e384493fa804216b79a6a6759a38cc4ff59118787b9fb693df93/websockets-16.0-cp314-cp314t-win_amd64.whl", hash = "sha256:b14dc141ed6d2dde437cddb216004bcac6a1df0935d79656387bd41632ba0bbd", size = 178531, upload-time = "2026-01-10T09:23:35.016Z" },
     { url = "https://files.pythonhosted.org/packages/6f/28/258ebab549c2bf3e64d2b0217b973467394a9cea8c42f70418ca2c5d0d2e/websockets-16.0-py3-none-any.whl", hash = "sha256:1637db62fad1dc833276dded54215f2c7fa46912301a24bd94d45d46a011ceec", size = 171598, upload-time = "2026-01-10T09:23:45.395Z" },
+]
+
+[[package]]
+name = "wikipedia-api"
+version = "0.13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "httpx" },
+    { name = "tenacity" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2d/bd/8861b6bb62c61c9f238552574f03c3dc8b4cffb14bae7887b56289435d84/wikipedia_api-0.13.0.tar.gz", hash = "sha256:a39d9c9ee280c75ae379690f1d88fae9c61ff726268934fa5c0e97e5e00fb170", size = 121117, upload-time = "2026-03-29T19:08:19.89Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/66/eb1c0da011e120ec46a1838effe31f820195b23e694a8da96f8303374a27/wikipedia_api-0.13.0-py3-none-any.whl", hash = "sha256:3f8be8a766ad50d69e308b17224e3168b4177541b6077ae1d1a4a4f6f5d1a0e8", size = 106184, upload-time = "2026-03-29T19:08:17.831Z" },
 ]
 
 [[package]]

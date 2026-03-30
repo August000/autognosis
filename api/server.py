@@ -114,13 +114,13 @@ async def node_suggest(request: Request, node_id: str, label: str = ""):
 
 @app.get("/api/node/{node_id}/detail")
 async def node_detail(request: Request, node_id: str, label: str = "", neighbors: str = ""):
-    """Get first-principles knowledge panel for a concept."""
+    """Get Wikipedia article for a concept (summary + full article)."""
     if not label:
-        return {"detail": ""}
+        return {"summary": "", "full_article": "", "title": "", "url": ""}
     pool = request.app.state.pool
     neighbor_list = [n.strip() for n in neighbors.split(",") if n.strip()] if neighbors else []
-    detail = await get_concept_detail(label, neighbor_list, pool=pool)
-    return {"detail": detail}
+    result = await get_concept_detail(label, neighbor_list, pool=pool)
+    return result
 
 
 @app.post("/api/node/{parent_id}/materialize")

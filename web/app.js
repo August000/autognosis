@@ -500,21 +500,118 @@ function hideInfoPanel() {
   document.getElementById('info-panel').classList.remove('visible');
 }
 
-// ── Detail + Memories ───────────────────────────
+// ── Detail (Wikipedia) + Memories ───────────────
+function renderMarkdownBasic(text) {
+  // Basic markdown-to-HTML: headers, paragraphs, bold, italic, links
+  return text
+    .split('\n\n')
+    .map(block => {
+      block = block.trim();
+      if (!block) return '';
+      // Headers
+      if (block.startsWith('### ')) return '<h5 class="article-h">' + esc(block.slice(4)) + '</h5>';
+      if (block.startsWith('## ')) return '<h4 class="article-h">' + esc(block.slice(3)) + '</h4>';
+      if (block.startsWith('# ')) return '<h4 class="article-h">' + esc(block.slice(2)) + '</h4>';
+      // Paragraph with inline formatting
+      let html = esc(block);
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      return '<p>' + html + '</p>';
+    })
+    .filter(Boolean)
+    .join('');
+}
+
+let _currentDetailData = null;
+let _detailExpanded = false;
+
 async function fetchDetail(node, neighbors) {
   const section = document.getElementById('detail-section');
   const content = document.getElementById('detail-content');
   section.style.display = 'block';
-  content.innerHTML = '<div class="detail-loading">thinking from first principles...</div>';
+  content.innerHTML = '<div class="detail-loading">searching wikipedia...</div>';
+  content.classList.remove('expanded');
+  _currentDetailData = null;
+  _detailExpanded = false;
+
   try {
     const nl = neighbors.map(n => n.label).join(',');
     const resp = await fetch('/api/node/' + encodeURIComponent(node.id)
       + '/detail?label=' + encodeURIComponent(node.label || '') + '&neighbors=' + encodeURIComponent(nl));
     const data = await resp.json();
-    if (data.detail) content.textContent = data.detail;
-    else section.style.display = 'none';
+
+    if (data.summary) {
+      _currentDetailData = data;
+      renderDetailSummary(content, data);
+    } else {
+      section.style.display = 'none';
+    }
   } catch (err) { section.style.display = 'none'; }
 }
+
+function renderDetailSummary(content, data) {
+  _detailExpanded = false;
+  content.classList.remove('expanded');
+  content.innerHTML = '';
+
+  if (data.title) {
+    const titleEl = document.createElement('div');
+    titleEl.className = 'article-title';
+    titleEl.textContent = data.title;
+    content.appendChild(titleEl);
+  }
+
+  const summaryEl = document.createElement('div');
+  summaryEl.className = 'article-summary';
+  summaryEl.textContent = data.summary;
+  content.appendChild(summaryEl);
+
+  if (data.full_article && data.full_article !== data.summary) {
+    const expandBtn = document.createElement('button');
+    expandBtn.className = 'detail-expand-btn';
+    expandBtn.textContent = 'read full article';
+    expandBtn.addEventListener('click', () => openArticleModal(data));
+    content.appendChild(expandBtn);
+  }
+}
+
+// ── Article reader modal ────────────────────────
+function openArticleModal(data) {
+  const modal = document.getElementById('article-modal');
+  const title = document.getElementById('article-modal-title');
+  const body = document.getElementById('article-modal-body');
+
+  title.textContent = data.title || '';
+  body.innerHTML = renderMarkdownBasic(data.full_article);
+
+  if (data.url) {
+    const urlDiv = document.createElement('div');
+    urlDiv.id = 'article-modal-url';
+    urlDiv.innerHTML = 'Source: <a href="' + esc(data.url) + '" target="_blank" rel="noopener">' + esc(data.url) + '</a>';
+    body.appendChild(urlDiv);
+  }
+
+  modal.style.display = 'flex';
+  // Trigger reflow then animate in
+  requestAnimationFrame(() => modal.classList.add('visible'));
+  body.scrollTop = 0;
+}
+
+function closeArticleModal() {
+  const modal = document.getElementById('article-modal');
+  modal.classList.remove('visible');
+  setTimeout(() => { modal.style.display = 'none'; }, 300);
+}
+
+document.getElementById('article-modal-close').addEventListener('click', closeArticleModal);
+document.getElementById('article-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeArticleModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('article-modal').classList.contains('visible')) {
+    closeArticleModal();
+  }
+});
 
 async function fetchMemories(node) {
   const section = document.getElementById('memories-section');
