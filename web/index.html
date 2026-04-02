@@ -37,6 +37,10 @@
     <div id="info-description"></div>
     <div class="section-header" id="info-connections"></div>
     <ul id="info-list"></ul>
+    <div id="insight-section" style="display: none;">
+      <div class="section-header">what this means to you</div>
+      <div id="insight-content"></div>
+    </div>
     <div id="detail-section" style="display: none;">
       <div class="section-header">wikipedia</div>
       <div id="detail-content"></div>
@@ -53,6 +57,28 @@
 
   <div id="stats"></div>
   <div id="graph-container"></div>
+
+  <!-- Voice Mode Button & Overlay -->
+  <button id="voice-btn" title="Start voice conversation">
+    <svg id="voice-icon-mic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>
+    <svg id="voice-icon-stop" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+      <rect x="6" y="6" width="12" height="12" rx="2"/>
+    </svg>
+  </button>
+
+  <div id="voice-overlay" style="display:none">
+    <div id="voice-overlay-inner">
+      <div id="voice-pulse"></div>
+      <div id="voice-status">connecting...</div>
+      <div id="voice-transcript"></div>
+      <button id="voice-stop-btn">end conversation</button>
+    </div>
+  </div>
 
   <!-- Article Reader Modal -->
   <div id="article-modal">
@@ -72,9 +98,14 @@
       <button id="chat-new-btn" title="New conversation">+</button>
       <button id="chat-history-btn" title="Conversation history">&#x2630;</button>
       <select id="chat-model-select">
-        <option value="gpt-4o-mini">GPT-4o Mini</option>
+        <option value="gpt-5.4">GPT-5.4</option>
+        <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
+        <option value="gpt-5.4-nano">GPT-5.4 Nano</option>
+        <option value="gpt-4.1">GPT-4.1</option>
+        <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+        <option value="gpt-4.1-nano">GPT-4.1 Nano</option>
         <option value="gpt-4o">GPT-4o</option>
-        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+        <option value="gpt-4o-mini">GPT-4o Mini</option>
       </select>
       <button id="chat-toggle" title="Minimize">_</button>
     </div>

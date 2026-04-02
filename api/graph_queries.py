@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from collections import defaultdict
 
 from neo4j import GraphDatabase
@@ -122,7 +123,7 @@ async def _batch_describe_nodes(client: OpenAI, nodes: list[dict], links: list[d
         try:
             response = await asyncio.to_thread(
                 client.chat.completions.create,
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=2000,
                 temperature=0.6,
@@ -167,7 +168,7 @@ async def _batch_label_edges(client: OpenAI, links: list[dict], node_map: dict[s
         try:
             response = await asyncio.to_thread(
                 client.chat.completions.create,
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=2000,
                 temperature=0.7,
@@ -252,7 +253,7 @@ async def _name_clusters(client: OpenAI, components: list[list[str]], node_map: 
     try:
         response = await asyncio.to_thread(
             client.chat.completions.create,
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
             temperature=0.5,
@@ -433,7 +434,7 @@ async def suggest_related(node_label: str, existing_labels: list[str], pool=None
     try:
         response = await asyncio.to_thread(
             client.chat.completions.create,
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
             temperature=0.7,
@@ -456,6 +457,251 @@ async def suggest_related(node_label: str, existing_labels: list[str], pool=None
     except Exception as e:
         logger.warning("Suggest related failed for '%s': %s", node_label, e)
         return []
+
+
+# ── Personal insight (AI-inferred meaning) ─────────────────────────────
+
+
+def _is_self_node(node_label: str, user_id: str) -> bool:
+    label = (node_label or "").strip().lower()
+    user = (user_id or "").strip().lower()
+    return label in {user, "me", "myself", "self"}
+
+
+def _trim_texts(items: list[str], limit: int = 10, max_chars: int = 300) -> list[str]:
+    return [item[:max_chars] for item in items if item][:limit]
+
+
+def _label_tokens(node_label: str) -> list[str]:
+    return [token for token in re.findall(r"[a-z0-9]+", (node_label or "").lower()) if len(token) >= 3]
+
+
+def _matches_concept_text(text: str, node_label: str) -> bool:
+    text_lower = (text or "").lower()
+    label_lower = (node_label or "").strip().lower()
+    if not text_lower or not label_lower:
+        return False
+    if label_lower in text_lower:
+        return True
+
+    tokens = _label_tokens(node_label)
+    if not tokens:
+        return False
+
+    matches = sum(1 for token in tokens if token in text_lower)
+    if len(tokens) == 1:
+        return matches == 1
+    return matches >= max(1, len(tokens) - 1)
+
+
+def _dedupe_preserve_order(items: list[str]) -> list[str]:
+    seen = set()
+    unique = []
+    for item in items:
+        normalized = item.strip().lower()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        unique.append(item)
+    return unique
+
+
+def _build_evidence_preview(evidence: dict, limit: int = 3) -> dict[str, list[str]]:
+    return {
+        "memories": evidence["memory_texts"][:limit],
+        "messages": evidence["message_texts"][:limit],
+        "relations": evidence["relation_texts"][:limit],
+    }
+
+
+async def collect_insight_evidence(node_label: str, pool=None, user_id: str = "augusto") -> dict:
+    """Collect evidence used to generate a personal insight."""
+    label_lower = (node_label or "").lower()
+    is_self = _is_self_node(node_label, user_id)
+
+    memory_texts: list[str] = []
+    message_texts: list[str] = []
+    relation_texts: list[str] = []
+
+    try:
+        from memory.client import mem
+    except Exception as e:
+        logger.warning("Memory client unavailable for insight '%s': %s", node_label, e)
+        mem = None
+
+    if is_self:
+        if mem is not None:
+            try:
+                result = await asyncio.to_thread(mem.get_all, user_id=user_id)
+                raw = result.get("results", []) if isinstance(result, dict) else result if isinstance(result, list) else []
+                all_texts = []
+                for r in raw:
+                    text = r.get("memory", "") if isinstance(r, dict) else str(r)
+                    if text:
+                        all_texts.append(text)
+                memory_texts = _trim_texts(all_texts, limit=12, max_chars=400)
+                relation_texts = _trim_texts(all_texts, limit=12, max_chars=220)
+            except Exception as e:
+                logger.warning("Self insight memory fetch failed for '%s': %s", node_label, e)
+
+        if pool:
+            from db.chat_repo import list_recent_user_messages
+            message_texts = _trim_texts(
+                await list_recent_user_messages(pool, user_id=user_id, limit=15),
+                limit=12,
+                max_chars=300,
+            )
+    else:
+        memories = await asyncio.to_thread(get_node_memories, node_label, user_id)
+        memory_texts = _trim_texts([m["text"] for m in memories if m.get("text")], limit=10, max_chars=400)
+
+        if pool:
+            from db.chat_repo import list_recent_user_messages, search_user_messages
+            direct_messages = await search_user_messages(pool, node_label, user_id=user_id, limit=15)
+            recent_messages = await list_recent_user_messages(pool, user_id=user_id, limit=40)
+            fuzzy_messages = [msg for msg in recent_messages if _matches_concept_text(msg, node_label)]
+            message_texts = _trim_texts(
+                _dedupe_preserve_order(direct_messages + fuzzy_messages),
+                limit=10,
+                max_chars=300,
+            )
+
+        if mem is not None:
+            try:
+                result = await asyncio.to_thread(mem.get_all, user_id=user_id)
+                raw = result.get("results", []) if isinstance(result, dict) else result if isinstance(result, list) else []
+                matches = []
+                for r in raw:
+                    text = r.get("memory", "") if isinstance(r, dict) else str(r)
+                    if text and _matches_concept_text(text, node_label):
+                        matches.append(text)
+                relation_texts = _trim_texts(matches, limit=10, max_chars=220)
+            except Exception as e:
+                logger.warning("Graph relations fetch failed for insight '%s': %s", node_label, e)
+
+    counts = {
+        "memories": len(memory_texts),
+        "messages": len(message_texts),
+        "relations": len(relation_texts),
+    }
+
+    evidence = {
+        "node_label": node_label,
+        "is_self": is_self,
+        "memory_texts": memory_texts,
+        "message_texts": message_texts,
+        "relation_texts": relation_texts,
+        "counts": counts,
+        "source_count": sum(counts.values()),
+    }
+    logger.info(
+        "Insight evidence for '%s': self=%s memories=%d messages=%d relations=%d",
+        node_label,
+        is_self,
+        counts["memories"],
+        counts["messages"],
+        counts["relations"],
+    )
+    return evidence
+
+
+async def generate_personal_insight(evidence: dict) -> dict:
+    """Generate a personal insight from collected evidence."""
+    node_label = evidence["node_label"]
+    source_count = evidence["source_count"]
+
+    if source_count == 0:
+        return {
+            "status": "no_sources",
+            "insight": None,
+            "source_count": 0,
+            "strategy": "self" if evidence["is_self"] else "concept",
+            "counts": evidence["counts"],
+            "reason": "no_evidence",
+            "evidence_preview": _build_evidence_preview(evidence),
+        }
+
+    context_parts = []
+    if evidence["memory_texts"]:
+        context_parts.append("Memories:\n" + "\n".join(f"- {t}" for t in evidence["memory_texts"]))
+    if evidence["message_texts"]:
+        context_parts.append("Things they've said:\n" + "\n".join(f"- {t}" for t in evidence["message_texts"]))
+    if evidence["relation_texts"]:
+        context_parts.append("Graph relations:\n" + "\n".join(f"- {t}" for t in evidence["relation_texts"]))
+
+    context = "\n\n".join(context_parts)
+
+    if evidence["is_self"]:
+        prompt = (
+            f"You are analysing someone's personal knowledge graph to understand who they are. "
+            f"Their name is \"{node_label}\".\n\n"
+            f"Here is personal evidence drawn from their memories, graph, and conversations:\n\n"
+            f"{context}\n\n"
+            "Write a concise self-reflection in second person (2-4 sentences) about who they seem to be right now. "
+            "Focus on recurring themes, tensions, values, motivations, and emotional patterns. "
+            "Be warm, specific, and grounded in the evidence. Do not mention that you are using data."
+        )
+    else:
+        prompt = (
+            f"You are analysing someone's personal knowledge graph to understand how they relate to the concept: \"{node_label}\".\n\n"
+            f"Here is everything you know about how this person has talked about or interacted with \"{node_label}\":\n\n"
+            f"{context}\n\n"
+            "Based on this, write a concise personal insight (2-4 sentences) about what this concept means to them. "
+            "How do they relate to it? What patterns do you see? Are there tensions or recurring themes?\n"
+            "Write in second person (\"You tend to...\", \"You see...\"). "
+            "Be warm, thoughtful, and specific. Do NOT be generic or repeat dictionary definitions."
+        )
+
+    try:
+        client = OpenAI()
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
+            model="gpt-5-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=250,
+            temperature=0.7,
+        )
+        insight_text = response.choices[0].message.content.strip()
+        return {
+            "status": "ok",
+            "insight": insight_text,
+            "source_count": source_count,
+            "strategy": "self" if evidence["is_self"] else "concept",
+            "counts": evidence["counts"],
+            "reason": "generated",
+            "evidence_preview": _build_evidence_preview(evidence),
+        }
+    except Exception as e:
+        logger.warning("Personal insight generation failed for '%s': %s", node_label, e)
+        return {
+            "status": "error",
+            "insight": None,
+            "source_count": source_count,
+            "strategy": "self" if evidence["is_self"] else "concept",
+            "counts": evidence["counts"],
+            "reason": "llm_error",
+            "evidence_preview": _build_evidence_preview(evidence),
+        }
+
+
+async def get_personal_insight(node_label: str, pool=None, user_id: str = "augusto") -> dict | None:
+    """Synthesise what a concept means to the user based on their conversations and memories."""
+
+    # 1. Check cache first
+    if pool:
+        from db.cache import get_api_cache
+        cached = await get_api_cache(pool, "personal_insight", node_label)
+        if cached is not None:
+            return cached
+
+    evidence = await collect_insight_evidence(node_label, pool=pool, user_id=user_id)
+    result = await generate_personal_insight(evidence)
+
+    if pool and result.get("status") == "ok":
+        from db.cache import set_api_cache
+        await set_api_cache(pool, "personal_insight", node_label, result, ttl_hours=24)
+
+    return result
 
 
 # ── Detailed knowledge panel ─────────────────────────────────────────────

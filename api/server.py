@@ -18,6 +18,7 @@ from api.graph_queries import (
     search_nodes,
     suggest_related,
     get_concept_detail,
+    get_personal_insight,
     materialize_ghost_node,
     to_centralized,
     to_decentralized,
@@ -123,6 +124,16 @@ async def node_detail(request: Request, node_id: str, label: str = "", neighbors
     return result
 
 
+@app.get("/api/node/{node_id}/insight")
+async def node_insight(request: Request, node_id: str, label: str = ""):
+    """Get AI-inferred personal insight for a concept."""
+    if not label:
+        return {"status": "no_label", "insight": None, "source_count": 0}
+    pool = request.app.state.pool
+    result = await get_personal_insight(label, pool=pool)
+    return result or {"status": "no_sources", "insight": None, "source_count": 0}
+
+
 @app.post("/api/node/{parent_id}/materialize")
 async def materialize(request: Request, parent_id: str, label: str = Query(...), reason: str = Query(default="")):
     """Materialize a ghost node into Memgraph, connected to parent."""
@@ -136,6 +147,10 @@ async def materialize(request: Request, parent_id: str, label: str = Query(...),
 # Include chat router
 from chat.router import router as chat_router
 app.include_router(chat_router)
+
+# Include voice router
+from voice.router import router as voice_router
+app.include_router(voice_router)
 
 # Serve static assets
 if WEB_DIR.exists():

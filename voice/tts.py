@@ -8,7 +8,7 @@ from elevenlabs import stream as el_stream
 logger = logging.getLogger(__name__)
 
 # Default voice – can be overridden via env or constructor
-DEFAULT_VOICE_ID = "zYcjlYFOd3taleS0gkk3"
+DEFAULT_VOICE_ID = "gJx1vCzNCD1EQHT212Ls"
 DEFAULT_MODEL = "eleven_turbo_v2_5"
 
 

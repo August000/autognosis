@@ -16,9 +16,19 @@ from db import chat_repo
 logger = logging.getLogger(__name__)
 
 SUPPORTED_MODELS = [
-    "gpt-4o-mini",
+    # Frontier / flagship (best reasoning + coding)
+    "gpt-5.4-2026-03-05",
+    "gpt-5.4-mini-2026-03-17",
+    "gpt-5.4-nano-2026-03-17",
+
+    # General-purpose high quality (cheaper than GPT-5)
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+
+    # Multimodal + real-time (audio / vision / voice apps)
     "gpt-4o",
-    "gpt-4-turbo",
+    "gpt-4o-mini",
 ]
 
 SYSTEM_PROMPT_TEMPLATE = """You are Solace, a thoughtful assistant that helps the user explore and understand their personal knowledge graph — a living map of their thoughts, memories, and connections.
@@ -76,12 +86,12 @@ class ChatService:
         self,
         conversation_id: UUID,
         user_message: str,
-        model: str = "gpt-4o-mini",
+        model: str = "gpt-5.4-2026-03-05",
         user_id: str = "augusto",
     ) -> AsyncGenerator[str, None]:
         """Process a user message and stream the assistant response."""
         if model not in SUPPORTED_MODELS:
-            model = "gpt-4o-mini"
+            model = "gpt-4o"
 
         # Store user message
         await chat_repo.add_message(self.pool, conversation_id, "user", user_message)

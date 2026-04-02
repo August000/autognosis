@@ -8,7 +8,7 @@ from uuid import UUID
 import asyncpg
 
 
-async def create_conversation(pool: asyncpg.Pool, user_id: str = "augusto", model: str = "gpt-4o-mini") -> dict:
+async def create_conversation(pool: asyncpg.Pool, user_id: str = "augusto", model: str = "gpt-5.4-mini") -> dict:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             "INSERT INTO conversations (user_id, model) VALUES ($1, $2) RETURNING *",
@@ -79,6 +79,46 @@ async def delete_conversation(pool: asyncpg.Pool, conversation_id: UUID) -> bool
     async with pool.acquire() as conn:
         result = await conn.execute("DELETE FROM conversations WHERE id = $1", conversation_id)
     return result == "DELETE 1"
+
+
+# ── Search helpers ──────────────────────────────────────────────────────
+
+
+async def search_user_messages(pool: asyncpg.Pool, keyword: str, user_id: str = "augusto", limit: int = 15) -> list[str]:
+    """Return user messages that mention a keyword (case-insensitive)."""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT m.content
+            FROM messages m
+            JOIN conversations c ON c.id = m.conversation_id
+            WHERE m.role = 'user'
+              AND c.user_id = $1
+              AND m.content ILIKE $2
+            ORDER BY m.created_at DESC
+            LIMIT $3
+            """,
+            user_id, f"%{keyword}%", limit,
+        )
+    return [r["content"] for r in rows]
+
+
+async def list_recent_user_messages(pool: asyncpg.Pool, user_id: str = "augusto", limit: int = 15) -> list[str]:
+    """Return recent user messages, regardless of keyword match."""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT m.content
+            FROM messages m
+            JOIN conversations c ON c.id = m.conversation_id
+            WHERE m.role = 'user'
+              AND c.user_id = $1
+            ORDER BY m.created_at DESC
+            LIMIT $2
+            """,
+            user_id, limit,
+        )
+    return [r["content"] for r in rows]
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────

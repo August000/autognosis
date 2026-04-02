@@ -185,6 +185,7 @@ function selectAndFocusNode(node, flyTo) {
   });
 
   showInfoPanel(node, neighbors);
+  fetchInsight(node);
   fetchMemories(node);
   fetchDetail(node, neighbors);
   fetchSuggestions(node);
@@ -486,6 +487,8 @@ function showInfoPanel(node, neighbors) {
     list.appendChild(li);
   });
 
+  document.getElementById('insight-section').style.display = 'none';
+  document.getElementById('insight-content').innerHTML = '';
   document.getElementById('detail-section').style.display = 'none';
   document.getElementById('detail-content').innerHTML = '';
   document.getElementById('suggestions-section').style.display = 'none';
@@ -520,6 +523,66 @@ function renderMarkdownBasic(text) {
     })
     .filter(Boolean)
     .join('');
+}
+
+// ── Personal insight (AI-inferred) ─────────────────
+async function fetchInsight(node) {
+  const section = document.getElementById('insight-section');
+  const content = document.getElementById('insight-content');
+  section.style.display = 'block';
+  const isSelfNode = ['augusto', 'me', 'myself', 'self'].includes((node.label || '').trim().toLowerCase());
+  content.innerHTML = '<div class="insight-loading">'
+    + (isSelfNode ? 'reflecting on who you are...' : 'reading your mind...')
+    + '</div>';
+
+  try {
+    const resp = await fetch('/api/node/' + encodeURIComponent(node.id)
+      + '/insight?label=' + encodeURIComponent(node.label || ''));
+    const data = await resp.json();
+
+    // Ignore stale responses if the user has already selected another node.
+    if (selectedNode !== node) return;
+
+    if (data.status === 'ok' && data.insight) {
+      content.innerHTML = '';
+      const textEl = document.createElement('div');
+      textEl.className = 'insight-text';
+      textEl.textContent = data.insight;
+      content.appendChild(textEl);
+
+      if (data.source_count) {
+        const meta = document.createElement('div');
+        meta.className = 'insight-meta';
+        const counts = data.counts || {};
+        const breakdown = [
+          counts.memories ? counts.memories + ' memories' : null,
+          counts.messages ? counts.messages + ' messages' : null,
+          counts.relations ? counts.relations + ' relations' : null,
+        ].filter(Boolean).join(' · ');
+        meta.textContent = 'based on ' + data.source_count + ' personal signal' + (data.source_count !== 1 ? 's' : '')
+          + (breakdown ? ' · ' + breakdown : '');
+        content.appendChild(meta);
+      }
+    } else if (data.status === 'no_sources') {
+      const counts = data.counts || {};
+      const breakdown = 'memories: ' + (counts.memories || 0)
+        + ', messages: ' + (counts.messages || 0)
+        + ', relations: ' + (counts.relations || 0);
+      content.innerHTML = '<div class="insight-loading">'
+        + (isSelfNode
+          ? 'there is not enough personal history collected yet to write a meaningful self-reflection.'
+          : 'not enough personal context yet to infer what this means to you.')
+        + '</div><div class="insight-meta">' + breakdown + '</div>';
+    } else if (data.status === 'error') {
+      content.innerHTML = '<div class="insight-loading">could not generate a personal insight right now.</div>';
+    } else {
+      content.innerHTML = '<div class="insight-loading">could not load a personal insight right now.</div>';
+    }
+  } catch (err) {
+    if (selectedNode !== node) return;
+    content.innerHTML = '<div class="insight-loading">could not load a personal insight right now.</div>';
+    console.error('Insight failed:', err);
+  }
 }
 
 let _currentDetailData = null;
@@ -885,6 +948,137 @@ async function sendChatMessage() {
     chatInput.focus();
   }
 }
+
+
+// ── Voice Mode ─────────────────────────────────────
+const voiceBtn = document.getElementById('voice-btn');
+const voiceIconMic = document.getElementById('voice-icon-mic');
+const voiceIconStop = document.getElementById('voice-icon-stop');
+const voiceOverlay = document.getElementById('voice-overlay');
+const voiceStatus = document.getElementById('voice-status');
+const voiceTranscript = document.getElementById('voice-transcript');
+const voiceStopBtn = document.getElementById('voice-stop-btn');
+const voicePulse = document.getElementById('voice-pulse');
+
+let voiceWs = null;
+let voiceActive = false;
+
+function startVoice() {
+  if (voiceActive) return;
+  voiceActive = true;
+  voiceBtn.classList.add('active');
+  voiceIconMic.style.display = 'none';
+  voiceIconStop.style.display = 'block';
+  voiceOverlay.style.display = 'flex';
+  voiceStatus.textContent = 'connecting...';
+  voiceTranscript.innerHTML = '';
+  voicePulse.className = '';
+
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  voiceWs = new WebSocket(proto + '//' + location.host + '/ws/voice');
+
+  voiceWs.onopen = () => {
+    voiceStatus.textContent = 'listening...';
+    voicePulse.className = 'listening';
+  };
+
+  voiceWs.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === 'connected') {
+      voiceStatus.textContent = 'listening...';
+      voicePulse.className = 'listening';
+    } else if (msg.type === 'speech_started') {
+      voiceStatus.textContent = 'hearing you...';
+      voicePulse.className = 'speaking';
+    } else if (msg.type === 'speech_stopped') {
+      voiceStatus.textContent = 'thinking...';
+      voicePulse.className = 'thinking';
+    } else if (msg.type === 'user_transcript') {
+      addVoiceMessage('you', msg.text);
+      voiceStatus.textContent = 'thinking...';
+      voicePulse.className = 'thinking';
+    } else if (msg.type === 'assistant_delta') {
+      updateAssistantMessage(msg.delta);
+    } else if (msg.type === 'assistant_done') {
+      finalizeAssistantMessage(msg.text);
+      voiceStatus.textContent = 'listening...';
+      voicePulse.className = 'listening';
+    } else if (msg.type === 'error') {
+      voiceStatus.textContent = 'error: ' + msg.message;
+      voicePulse.className = '';
+    } else if (msg.type === 'disconnected') {
+      stopVoice();
+    }
+  };
+
+  voiceWs.onclose = () => {
+    stopVoice();
+  };
+
+  voiceWs.onerror = () => {
+    voiceStatus.textContent = 'connection failed';
+    voicePulse.className = '';
+    setTimeout(stopVoice, 2000);
+  };
+}
+
+function stopVoice() {
+  if (voiceWs && voiceWs.readyState === WebSocket.OPEN) {
+    voiceWs.send(JSON.stringify({ type: 'stop' }));
+    voiceWs.close();
+  }
+  voiceWs = null;
+  voiceActive = false;
+  voiceBtn.classList.remove('active');
+  voiceIconMic.style.display = 'block';
+  voiceIconStop.style.display = 'none';
+  voiceOverlay.style.display = 'none';
+  voicePulse.className = '';
+}
+
+let _currentAssistantDiv = null;
+
+function addVoiceMessage(role, text) {
+  _currentAssistantDiv = null;
+  const div = document.createElement('div');
+  div.className = 'voice-msg ' + role;
+  div.textContent = (role === 'you' ? 'You: ' : 'Solace: ') + text;
+  voiceTranscript.appendChild(div);
+  voiceTranscript.scrollTop = voiceTranscript.scrollHeight;
+}
+
+function updateAssistantMessage(delta) {
+  if (!_currentAssistantDiv) {
+    _currentAssistantDiv = document.createElement('div');
+    _currentAssistantDiv.className = 'voice-msg solace';
+    _currentAssistantDiv.textContent = 'Solace: ';
+    voiceTranscript.appendChild(_currentAssistantDiv);
+  }
+  _currentAssistantDiv.textContent += delta;
+  voiceTranscript.scrollTop = voiceTranscript.scrollHeight;
+}
+
+function finalizeAssistantMessage(text) {
+  if (_currentAssistantDiv) {
+    _currentAssistantDiv.textContent = 'Solace: ' + text;
+  } else {
+    addVoiceMessage('solace', text);
+  }
+  _currentAssistantDiv = null;
+}
+
+voiceBtn.addEventListener('click', () => {
+  if (voiceActive) stopVoice();
+  else startVoice();
+});
+
+voiceStopBtn.addEventListener('click', stopVoice);
+
+// Close overlay on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && voiceActive) stopVoice();
+});
 
 
 // ── Init ────────────────────────────────────────

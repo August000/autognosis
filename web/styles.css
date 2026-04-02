@@ -207,6 +207,25 @@ body {
 }
 .nav-link:hover .nav-goto { opacity: 1; }
 
+/* ── Personal insight ────────────────────────── */
+#insight-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05); }
+#insight-content {
+  font-size: 12px; color: #bbb; line-height: 1.7;
+  padding: 10px 12px;
+  background: rgba(255, 193, 94, 0.04);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 193, 94, 0.1);
+  border-left: 2px solid rgba(255, 193, 94, 0.45);
+}
+.insight-loading { font-size: 11px; color: #555; font-style: italic; }
+.insight-text { font-size: 12px; color: #ccc; line-height: 1.7; }
+.insight-meta {
+  margin-top: 8px;
+  font-size: 10px;
+  color: #666;
+  font-style: italic;
+}
+
 /* ── Knowledge detail (summary in panel) ─────── */
 #detail-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05); }
 #detail-content {
@@ -597,4 +616,162 @@ body {
 #chat-messages::-webkit-scrollbar-track, #chat-conversations::-webkit-scrollbar-track { background: transparent; }
 #chat-messages::-webkit-scrollbar-thumb, #chat-conversations::-webkit-scrollbar-thumb {
   background: rgba(255,255,255,0.1); border-radius: 2px;
+}
+
+/* ── Voice Mode ─────────────────────────────────── */
+#voice-btn {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 200;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(10,10,12,0.85);
+  color: #888;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(12px);
+}
+#voice-btn:hover {
+  border-color: rgba(140,180,213,0.4);
+  color: #8CB4D5;
+  background: rgba(140,180,213,0.08);
+}
+#voice-btn.active {
+  border-color: rgba(212,149,106,0.5);
+  color: #D4956A;
+  background: rgba(212,149,106,0.12);
+  animation: voice-glow 2s ease-in-out infinite;
+}
+@keyframes voice-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(212,149,106,0.15); }
+  50% { box-shadow: 0 0 20px rgba(212,149,106,0.3); }
+}
+
+/* Voice overlay */
+#voice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5,5,7,0.92);
+  backdrop-filter: blur(20px);
+  animation: voice-fade-in 0.3s ease;
+}
+@keyframes voice-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+#voice-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  max-width: 500px;
+  width: 90%;
+}
+
+/* Pulse circle */
+#voice-pulse {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: all 0.4s ease;
+}
+#voice-pulse.listening {
+  background: rgba(140,180,213,0.08);
+  border-color: rgba(140,180,213,0.25);
+  animation: pulse-listen 2.5s ease-in-out infinite;
+}
+#voice-pulse.speaking {
+  background: rgba(125,184,137,0.1);
+  border-color: rgba(125,184,137,0.35);
+  animation: pulse-speak 0.6s ease-in-out infinite;
+}
+#voice-pulse.thinking {
+  background: rgba(212,149,106,0.08);
+  border-color: rgba(212,149,106,0.25);
+  animation: pulse-think 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-listen {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(140,180,213,0.15); }
+  50% { transform: scale(1.06); box-shadow: 0 0 30px 10px rgba(140,180,213,0.08); }
+}
+@keyframes pulse-speak {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+@keyframes pulse-think {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.04); opacity: 1; }
+}
+
+#voice-status {
+  font-size: 13px;
+  color: #666;
+  letter-spacing: 0.5px;
+  font-weight: 400;
+}
+
+/* Voice transcript area */
+#voice-transcript {
+  width: 100%;
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+#voice-transcript::-webkit-scrollbar { width: 4px; }
+#voice-transcript::-webkit-scrollbar-track { background: transparent; }
+#voice-transcript::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.voice-msg {
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 8px 14px;
+  border-radius: 10px;
+  max-width: 90%;
+  word-wrap: break-word;
+}
+.voice-msg.you {
+  align-self: flex-end;
+  background: rgba(140,180,213,0.12);
+  color: #c8dae8;
+  border-bottom-right-radius: 4px;
+}
+.voice-msg.solace {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.04);
+  color: #bbb;
+  border-bottom-left-radius: 4px;
+}
+
+#voice-stop-btn {
+  margin-top: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #888;
+  font-family: 'Gellix', sans-serif;
+  font-size: 12px;
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+#voice-stop-btn:hover {
+  background: rgba(196,125,125,0.12);
+  border-color: rgba(196,125,125,0.3);
+  color: #C47D7D;
 }
